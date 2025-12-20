@@ -1,5 +1,5 @@
 var callCnt:Int = 0;
-fun fib(x:Int) -> Int
+func fib(x:Int) -> Int
 {
     callCnt = callCnt + 1;
     if (x <= 1)
