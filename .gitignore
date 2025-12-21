@@ -9,3 +9,5 @@ build/
 .VSCodeCounter
 
 test.fig
+
+docs/node_modules
