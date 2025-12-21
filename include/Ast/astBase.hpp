@@ -52,37 +52,37 @@ namespace Fig::Ast
         ContinueSt,
     };
 
-    static const std::unordered_map<AstType, FString> astTypeToString{
-        /* Base Class */
-        {AstType::_AstBase, FString(u8"Ast")},
-        {AstType::StatementBase, FString(u8"Statement")},
-        {AstType::ExpressionBase, FString(u8"Expression")},
-        /* Expression */
-        {AstType::ValueExpr, FString(u8"ValueExpr")},
-        {AstType::LambdaExpr, FString(u8"LambdaExpr")},
-        {AstType::UnaryExpr, FString(u8"UnaryExpr")},
-        {AstType::BinaryExpr, FString(u8"BinaryExpr")},
-        {AstType::TernaryExpr, FString(u8"TernaryExpr")},
+    // static const std::unordered_map<AstType, FString> astTypeToString{
+    //     /* Base Class */
+    //     {AstType::_AstBase, FString(u8"Ast")},
+    //     {AstType::StatementBase, FString(u8"Statement")},
+    //     {AstType::ExpressionBase, FString(u8"Expression")},
+    //     /* Expression */
+    //     {AstType::ValueExpr, FString(u8"ValueExpr")},
+    //     {AstType::LambdaExpr, FString(u8"LambdaExpr")},
+    //     {AstType::UnaryExpr, FString(u8"UnaryExpr")},
+    //     {AstType::BinaryExpr, FString(u8"BinaryExpr")},
+    //     {AstType::TernaryExpr, FString(u8"TernaryExpr")},
         
-        {AstType::InitExpr, FString(u8"InitExpr")},
+    //     {AstType::InitExpr, FString(u8"InitExpr")},
 
-        /* Statement */
-        {AstType::BlockStatement, FString(u8"BlockStatement")},
+    //     /* Statement */
+    //     {AstType::BlockStatement, FString(u8"BlockStatement")},
 
-        {AstType::VarDefSt, FString(u8"VarSt")},
-        {AstType::FunctionDefSt, FString(u8"FunctionDefSt")},
-        {AstType::StructSt, FString(u8"StructSt")},
-        {AstType::ImplementSt, FString(u8"ImplementSt")},
+    //     {AstType::VarDefSt, FString(u8"VarSt")},
+    //     {AstType::FunctionDefSt, FString(u8"FunctionDefSt")},
+    //     {AstType::StructSt, FString(u8"StructSt")},
+    //     {AstType::ImplementSt, FString(u8"ImplementSt")},
 
-        {AstType::IfSt, FString(u8"IfSt")},
-        {AstType::ElseSt, FString(u8"ElseSt")},
-        {AstType::ElseIfSt, FString(u8"ElseIfSt")},
-        {AstType::VarAssignSt, FString(u8"VarAssignSt")},
-        {AstType::WhileSt, FString(u8"WhileSt")},
-        {AstType::ReturnSt, FString(u8"ReturnSt")},
-        {AstType::BreakSt, FString(u8"BreakSt")},
-        {AstType::ContinueSt, FString(u8"ContinueSt")},
-    };
+    //     {AstType::IfSt, FString(u8"IfSt")},
+    //     {AstType::ElseSt, FString(u8"ElseSt")},
+    //     {AstType::ElseIfSt, FString(u8"ElseIfSt")},
+    //     {AstType::VarAssignSt, FString(u8"VarAssignSt")},
+    //     {AstType::WhileSt, FString(u8"WhileSt")},
+    //     {AstType::ReturnSt, FString(u8"ReturnSt")},
+    //     {AstType::BreakSt, FString(u8"BreakSt")},
+    //     {AstType::ContinueSt, FString(u8"ContinueSt")},
+    // };
 
     struct AstAddressInfo
     {
@@ -111,7 +111,9 @@ namespace Fig::Ast
 
         virtual FString typeName()
         {
-            return astTypeToString.at(type);
+            return FString::fromStringView(
+                FStringView::fromBasicStringView(magic_enum::enum_name(type))
+            );
         }
         virtual FString toString()
         {

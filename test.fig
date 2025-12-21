@@ -1,0 +1,5 @@
+while (true)
+{
+    __fstdout_println("1");
+    break;
+}
