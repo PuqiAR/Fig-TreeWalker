@@ -409,31 +409,39 @@ namespace Fig
         // entry: when iterator current char is '/' and peek is '/' or '*'
         // current char is '/'
         FString comment;
-        if (it.peek() == U'/')
+
+        if (it.peek() == U'/') // single-line comment
         {
-            next();
-            next();
+            next(); // skip first '/'
+            next(); // skip second '/'
+
             UTF8Char c = *it;
             while (c != U'\n' and hasNext())
             {
                 comment += c.getString();
                 next();
+                c = *it;
             }
-            next();
+
+            if (hasNext() && c == U'\n')
+            {
+                next();
+            }
         }
-        else
+        else // multi-line comment
         {
-            next();
-            next();
+            next(); // skip '/'
+            next(); // skip '*'
+
             UTF8Char c = *it;
             bool terminated = false;
+
             while (hasNext())
             {
                 if (c == U'*' and hasNext() and it.peek() == U'/')
                 {
                     next(); // skip '*'
                     next(); // skip '/'
-                    next(); // to next char
                     terminated = true;
                     break;
                 }
@@ -441,8 +449,10 @@ namespace Fig
                 {
                     comment += c.getString();
                     next();
+                    c = *it;
                 }
             }
+
             if (!terminated)
             {
                 error = SyntaxError(FStringView(u8"Unterminated multiline comment"), this->line, it.column());
@@ -450,6 +460,7 @@ namespace Fig
                 return IllegalTok;
             }
         }
+
         return Token(comment, TokenType::Comments);
     }
     Token Lexer::nextToken()
@@ -470,6 +481,24 @@ namespace Fig
         }
         last_line = getCurrentLine();
         last_column = getCurrentColumn();
+        if (ch == U'/')
+        {
+            UTF8Char c{u8""};
+            if (!hasNext())
+            {
+                next();
+                // return Token(u8"/", this->symbol_map.at(u8"/")).setPos(last_line, last_column);
+            }
+            c = it.peek();
+            if (c != U'/' and c != U'*')
+            {
+                next();
+                // return Token(u8"/", this->symbol_map.at(u8"/")).setPos(last_line, last_column);
+            }
+            scanComments().setPos(last_line, last_column);
+            return nextToken();
+            // now we ignore comments to avoid some stupid bugs
+        }
         if (ch == U'r' and hasNext() and it.peek() == U'"')
         {
             // r""
@@ -490,22 +519,6 @@ namespace Fig
         else if (ch.isDigit())
         {
             return scanNumber().setPos(last_line, last_column);
-        }
-        else if (ch == U'/')
-        {
-            UTF8Char c{u8""};
-            if (!hasNext())
-            {
-                next();
-                return Token(u8"/", this->symbol_map.at(u8"/")).setPos(last_line, last_column);
-            }
-            c = it.peek();
-            if (c != U'/' and c != U'*')
-            {
-                next();
-                return Token(u8"/", this->symbol_map.at(u8"/")).setPos(last_line, last_column);
-            }
-            return scanComments().setPos(last_line, last_column);
         }
         else if (ch.isPunct())
         {

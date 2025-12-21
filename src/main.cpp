@@ -109,6 +109,13 @@ int main(int argc, char **argv)
     file.close();
 
     Fig::Lexer lexer((Fig::FString(source)));
+
+    // Token tok;
+    // while ((tok = lexer.nextToken()).getType() != TokenType::EndOfFile)
+    // {
+    //     std::println("{}", tok.toString().toBasicString());
+    // }
+
     Fig::Parser parser(lexer);
     std::vector<Fig::Ast::AstBase> ast;
 
@@ -135,12 +142,6 @@ int main(int argc, char **argv)
         std::cerr << "uncaught exception of: " << e.what() << '\n';
         return 1;
     }
-
-    // Token tok;
-    // while ((tok = lexer.nextToken()).getType() != TokenType::EndOfFile)
-    // {
-    //     std::println("{}", tok.toString().toBasicString());
-    // }
 
     // AstPrinter printer;
     // std::print("<Debug> AST:\n");

@@ -1,0 +1,13 @@
+var any_var;  // type is Any
+var number = 10; // type is Int
+number = "123";  // valid
+
+var number2 := 10; // specific type is Int
+var number3: Int = 10; // both is ok
+/* 
+number2 = 3.14;
+invalid!
+*/
+
+const Pi := 3.14; // recommended, auto detect type
+// equal -> const Pi: Double = 3.14;
