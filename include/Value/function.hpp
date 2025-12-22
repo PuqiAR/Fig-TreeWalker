@@ -24,6 +24,8 @@ namespace Fig
 
         std::shared_ptr<Context> closureContext;
 
+        FunctionStruct() = default;
+
         FunctionStruct(Ast::FunctionParameters _paras, TypeInfo _retType, Ast::BlockStatement _body, ContextPtr _closureContext) :
             id(nextId()), // 分配唯一 ID
             paras(std::move(_paras)),

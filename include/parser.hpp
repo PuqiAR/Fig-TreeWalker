@@ -33,18 +33,18 @@ namespace Fig
 
         class SemicolonDisabler
         {
-            Parser &p;
+            Parser *p;
             bool original;
 
         public:
-            SemicolonDisabler(Parser &parser) :
-                p(parser), original(p.needSemicolon)
+            SemicolonDisabler(Parser *parser) :
+                p(parser), original(p->needSemicolon)
             {
-                p.needSemicolon = false;
+                p->needSemicolon = false;
             }
             ~SemicolonDisabler()
             {
-                p.needSemicolon = original;
+                p->needSemicolon = original;
             }
             // disable copy and assign
             SemicolonDisabler(const SemicolonDisabler &) = delete;
@@ -253,7 +253,7 @@ namespace Fig
 
         [[nodiscard]] SemicolonDisabler disableSemicolon()
         {
-            return SemicolonDisabler(*this);
+            return SemicolonDisabler(this);
         }
 
         void expectSemicolon()

@@ -1,6 +1,9 @@
-const println := __fstdout_println;
-
-for var i=0;i<10;i=i+1
+var call := 0;
+func t()
 {
-    println("Loop ", i);
+    call = call + 1;
+    __fstdout_println(call);
+    t();
 }
+
+t();

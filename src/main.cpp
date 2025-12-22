@@ -169,6 +169,12 @@ int main(int argc, char **argv)
         evaluator.printStackTrace();
         return 1;
     }
+    catch (const std::exception &e)
+    {
+        std::cerr << "uncaught exception of: " << e.what() << '\n';
+        evaluator.printStackTrace();
+        return 1;
+    }
 
     // try
     // {

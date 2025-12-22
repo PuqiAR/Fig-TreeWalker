@@ -18,6 +18,8 @@ namespace Fig
         std::unordered_map<FString, Value> variables;
         std::unordered_map<FString, AccessModifier> ams;
 
+        std::unordered_map<std::size_t, FunctionStruct> functions;
+        std::unordered_map<std::size_t, FString> functionNames;
     public:
         ContextPtr parent;
 
@@ -113,13 +115,52 @@ namespace Fig
         }
         void def(const FString &name, const TypeInfo &ti, AccessModifier am, const Value &value = Any())
         {
-            if (variables.contains(name))
+            if (containsInThisScope(name))
             {
                 throw RuntimeError(FStringView(std::format("Variable '{}' already defined in this scope", name.toBasicString())));
             }
             variables[name] = value;
             varTypes[name] = ti;
             ams[name] = am;
+
+            if (ti == ValueType::Function and value.getTypeInfo() == ValueType::Function)
+            {
+                auto &fn = value.as<Function>().getValue();
+                functions[fn.id] = fn;
+                functionNames[fn.id] = name;
+            }
+        }
+        std::optional<FunctionStruct> getFunction(std::size_t id)
+        {
+            auto it = functions.find(id);
+            if (it != functions.end())
+            {
+                return it->second;
+            }
+            else if (parent)
+            {
+                return parent->getFunction(id);
+            }
+            else
+            {
+                return std::nullopt;
+            }
+        }
+        std::optional<FString> getFunctionName(std::size_t id)
+        {
+            auto it = functionNames.find(id);
+            if (it != functionNames.end())
+            {
+                return it->second;
+            }
+            else if (parent)
+            {
+                return parent->getFunctionName(id);
+            }
+            else
+            {
+                return std::nullopt;
+            }
         }
         bool contains(const FString &name)
         {
@@ -133,6 +174,11 @@ namespace Fig
             }
             return false;
         }
+        bool containsInThisScope(const FString &name) const
+        {
+            return variables.contains(name);
+        }
+
         TypeInfo getTypeInfo(const FString &name)
         {
             if (varTypes.contains(name))
