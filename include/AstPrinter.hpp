@@ -99,7 +99,7 @@ private:
     {
         printIndent(indent);
         std::cout << "ValueExpr\n";
-        printFString(node->val.toString(), indent + 2);
+        printFString(node->val->toString(), indent + 2);
     }
 
     void printVarDef(const std::shared_ptr<VarDefAst> &node, int indent)

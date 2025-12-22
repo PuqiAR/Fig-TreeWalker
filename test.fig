@@ -1,17 +1,16 @@
 struct Person
 {
     name: String;
-    age: Int = 10;
-
-    public func getName()
-    {
-        return name;
-    }
+    age: Int;
 }
 
-var person = Person{"123"};
+var person := Person{"Fig", 1};
 
-const print := __fstdout_print;
-print(person.name);
-person.name = "sb";
-print(person.name);
+const print := __fstdout_println;
+
+print(person.name, " ", person.age);
+
+person.name = "hello";
+person.age = 114514;
+
+print(person.name, " ", person.age);

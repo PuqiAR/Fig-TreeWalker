@@ -20,7 +20,7 @@ namespace Fig
         Ast::BlockStatement body;
 
         bool isBuiltin = false;
-        std::function<Object(const std::vector<Object> &)> builtin;
+        std::function<std::shared_ptr<Object>(const std::vector<std::shared_ptr<Object>> &)> builtin;
         int builtinParamCount = -1;
 
         std::shared_ptr<Context> closureContext;
@@ -38,10 +38,8 @@ namespace Fig
         {
         }
 
-        Function(std::function<Object(const std::vector<Object> &)> fn, int argc) :
-            id(nextId()), isBuiltin(true), builtin(std::move(fn)), builtinParamCount(argc)
-        {
-        }
+        Function(std::function<std::shared_ptr<Object>(const std::vector<std::shared_ptr<Object>> &)> fn, int argc) :
+            id(nextId()), isBuiltin(true), builtin(fn), builtinParamCount(argc) {}
 
         // ===== Copy / Move =====
         Function(const Function &other) = default;

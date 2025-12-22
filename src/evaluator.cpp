@@ -4,35 +4,41 @@
 
 namespace Fig
 {
-    Object Evaluator::__evalOp(Ast::Operator op, const Object &lhs, const Object &rhs)
+    ObjectPtr Evaluator::__evalOp(Ast::Operator op, const ObjectPtr &lhs, const ObjectPtr &rhs)
     {
         using Fig::Ast::Operator;
         switch (op)
         {
-            case Operator::Add: return lhs + rhs;
-            case Operator::Subtract: return lhs - rhs;
-            case Operator::Multiply: return lhs * rhs;
-            case Operator::Divide: return lhs / rhs;
-            case Operator::Modulo: return lhs % rhs;
-            case Operator::Power: return power(lhs, rhs);
+            case Operator::Add: return std::make_shared<Object>(*lhs + *rhs);
+            case Operator::Subtract: return std::make_shared<Object>(*lhs - *rhs);
+            case Operator::Multiply: return std::make_shared<Object>((*lhs) * (*rhs));
+            case Operator::Divide: return std::make_shared<Object>(*lhs / *rhs);
+            case Operator::Modulo: return std::make_shared<Object>(*lhs % *rhs);
+            case Operator::Power: return std::make_shared<Object>(power(*lhs, *rhs));
 
-            case Operator::And: return lhs && rhs;
-            case Operator::Or: return lhs || rhs;
-            case Operator::Not: return !lhs;
+            case Operator::And: return std::make_shared<Object>(*lhs && *rhs);
+            case Operator::Or: return std::make_shared<Object>(*lhs || *rhs);
+            case Operator::Not: return std::make_shared<Object>(!*lhs);
 
-            case Operator::Equal: return Object(lhs == rhs);
-            case Operator::NotEqual: return Object(lhs != rhs);
-            case Operator::Less: return lhs < rhs;
-            case Operator::LessEqual: return lhs <= rhs;
-            case Operator::Greater: return lhs > rhs;
-            case Operator::GreaterEqual: return lhs >= rhs;
+            case Operator::Equal: return std::make_shared<Object>(*lhs == *rhs);
+            case Operator::NotEqual: return std::make_shared<Object>(*lhs != *rhs);
+            case Operator::Less: return std::make_shared<Object>(*lhs < *rhs);
+            case Operator::LessEqual: return std::make_shared<Object>(*lhs <= *rhs);
+            case Operator::Greater: return std::make_shared<Object>(*lhs > *rhs);
+            case Operator::GreaterEqual: return std::make_shared<Object>(*lhs >= *rhs);
 
-            case Operator::BitAnd: return bit_and(lhs, rhs);
-            case Operator::BitOr: return bit_or(lhs, rhs);
-            case Operator::BitXor: return bit_xor(lhs, rhs);
-            case Operator::BitNot: return bit_not(lhs);
-            case Operator::ShiftLeft: return shift_left(lhs, rhs);
-            case Operator::ShiftRight: return shift_right(lhs, rhs);
+            case Operator::BitAnd: return std::make_shared<Object>(bit_and(*lhs, *rhs));
+            case Operator::BitOr: return std::make_shared<Object>(bit_or(*lhs, *rhs));
+            case Operator::BitXor: return std::make_shared<Object>(bit_xor(*lhs, *rhs));
+            case Operator::BitNot: return std::make_shared<Object>(bit_not(*lhs));
+            case Operator::ShiftLeft: return std::make_shared<Object>(shift_left(*lhs, *rhs));
+            case Operator::ShiftRight: return std::make_shared<Object>(shift_right(*lhs, *rhs));
+            
+            case Operator::Assign: 
+            {
+                *lhs = *rhs;
+                return Object::getNullInstance();
+            }
 
             // case Operator::Walrus: {
             //     static constexpr char WalrusErrorName[] = "WalrusError";
@@ -43,19 +49,19 @@ namespace Fig
         }
     }
 
-    Object Evaluator::evalBinary(const Ast::BinaryExpr &binExp)
+    ObjectPtr Evaluator::evalBinary(const Ast::BinaryExpr &binExp)
     {
         if (binExp->op == Ast::Operator::Dot)
         {
-            const Object &lhs = eval(binExp->lexp);
-            if (!lhs.is<StructInstance>())
+            const ObjectPtr &lhs = eval(binExp->lexp);
+            if (!lhs->is<StructInstance>())
             {
                 static constexpr char AccessOpObjectNotStructError[] = "AccessOpObjectNotStructError";
                 throw EvaluatorError<AccessOpObjectNotStructError>(FStringView(
                                                                        std::format("Object not a struct")),
                                                                    binExp->lexp->getAAI());
             }
-            const StructInstance &st = lhs.as<StructInstance>();
+            const StructInstance &st = lhs->as<StructInstance>();
             Ast::VarExpr varExp;
             if (!(varExp = std::dynamic_pointer_cast<Ast::VarExprAst>(binExp->rexp)))
             {
@@ -77,44 +83,27 @@ namespace Fig
             }
             return *st.localContext->get(member); // safe
         }
-        if (binExp->op == Ast::Operator::Assign)
-        {
-            Ast::VarExpr varExp;
-            if (!(varExp = std::dynamic_pointer_cast<Ast::VarExprAst>(binExp->rexp)))
-            {
-                static constexpr char AssignToRightValueError[] = "AssignToRightValueError";
-                throw EvaluatorError<AssignToRightValueError>(FStringView(
-                                                                  std::format("Can't assign to right value {}", binExp->lexp->toString().toBasicString())),
-                                                              binExp->lexp->getAAI());
-            }
-            const FString& varName = varExp->name;
-            if (!currentContext->contains(varName))
-            {
-                static constexpr char VariableNotFoundErrorName[] = "VariableNotFoundError";
-                throw EvaluatorError<VariableNotFoundErrorName>(FStringView(std::format("Variable '{}' not defined", varName.toBasicString())), currentAddressInfo);
-            }
-        }
         return __evalOp(binExp->op, eval(binExp->lexp), eval(binExp->rexp));
     }
-    Object Evaluator::evalUnary(const Ast::UnaryExpr &unExp)
+    ObjectPtr Evaluator::evalUnary(const Ast::UnaryExpr &unExp)
     {
         using Fig::Ast::Operator;
         switch (unExp->op)
         {
             case Operator::Not:
-                return !eval(unExp->exp);
+                return std::make_shared<Object>(!*eval(unExp->exp));
             case Operator::Subtract:
-                return -eval(unExp->exp);
+                return std::make_shared<Object>(-*eval(unExp->exp));
             case Operator::BitNot:
-                return bit_not(eval(unExp->exp));
+                return std::make_shared<Object>(bit_not(*eval(unExp->exp)));
             default:
                 throw RuntimeError(FStringView(std::format("Unsupported unary operator: {}", magic_enum::enum_name(unExp->op))));
         }
     }
 
-    Object Evaluator::evalFunctionCall(const Function &fn, const Ast::FunctionArguments &fnArgs, FString fnName)
+    ObjectPtr Evaluator::evalFunctionCall(const Function &fn, const Ast::FunctionArguments &fnArgs, FString fnName)
     {
-        const Function& fnStruct = fn;
+        const Function &fnStruct = fn;
         Ast::FunctionCallArgs evaluatedArgs;
         if (fnStruct.isBuiltin)
         {
@@ -143,8 +132,8 @@ namespace Fig
         for (i = 0; i < fnParas.posParas.size(); i++)
         {
             TypeInfo expectedType(fnParas.posParas[i].second); // look up type info, if exists a type with the name, use it, else throw
-            Object argVal = eval(fnArgs.argv[i]);
-            TypeInfo actualType = argVal.getTypeInfo();
+            ObjectPtr argVal = eval(fnArgs.argv[i]);
+            TypeInfo actualType = argVal->getTypeInfo();
             if (expectedType != actualType and expectedType != ValueType::Any)
             {
                 static constexpr char ArgumentTypeMismatchErrorName[] = "ArgumentTypeMismatchError";
@@ -158,15 +147,15 @@ namespace Fig
             size_t defParamIndex = i - fnParas.posParas.size();
             TypeInfo expectedType = fnParas.defParas[defParamIndex].second.first;
 
-            Object defaultVal = eval(fnParas.defParas[defParamIndex].second.second);
-            if (expectedType != defaultVal.getTypeInfo() and expectedType != ValueType::Any)
+            ObjectPtr defaultVal = eval(fnParas.defParas[defParamIndex].second.second);
+            if (expectedType != defaultVal->getTypeInfo() and expectedType != ValueType::Any)
             {
                 static constexpr char DefaultParameterTypeErrorName[] = "DefaultParameterTypeError";
-                throw EvaluatorError<DefaultParameterTypeErrorName>(FStringView(std::format("In function '{}', default parameter '{}' has type '{}', which does not match the expected type '{}'", fnName.toBasicString(), fnParas.defParas[defParamIndex].first.toBasicString(), defaultVal.getTypeInfo().toString().toBasicString(), expectedType.toString().toBasicString())), currentAddressInfo);
+                throw EvaluatorError<DefaultParameterTypeErrorName>(FStringView(std::format("In function '{}', default parameter '{}' has type '{}', which does not match the expected type '{}'", fnName.toBasicString(), fnParas.defParas[defParamIndex].first.toBasicString(), defaultVal->getTypeInfo().toString().toBasicString(), expectedType.toString().toBasicString())), currentAddressInfo);
             }
 
-            Object argVal = eval(fnArgs.argv[i]);
-            TypeInfo actualType = argVal.getTypeInfo();
+            ObjectPtr argVal = eval(fnArgs.argv[i]);
+            TypeInfo actualType = argVal->getTypeInfo();
             if (expectedType != actualType and expectedType != ValueType::Any)
             {
                 static constexpr char ArgumentTypeMismatchErrorName[] = "ArgumentTypeMismatchError";
@@ -178,7 +167,7 @@ namespace Fig
         for (; i < fnParas.size(); i++)
         {
             size_t defParamIndex = i - fnParas.posParas.size();
-            Object defaultVal = eval(fnParas.defParas[defParamIndex].second.second);
+            ObjectPtr defaultVal = eval(fnParas.defParas[defParamIndex].second.second);
             evaluatedArgs.argv.push_back(defaultVal);
         }
         // create new context for function call
@@ -206,7 +195,7 @@ namespace Fig
             currentContext->def(paramName, paramType, argAm, evaluatedArgs.argv[j]);
         }
         // execute function body
-        Object retVal = Object::getNullInstance();
+        ObjectPtr retVal = Object::getNullInstance();
         for (const auto &stmt : fnStruct.body->stmts)
         {
             StatementResult sr = evalStatement(stmt);
@@ -217,15 +206,15 @@ namespace Fig
             }
         }
         currentContext = previousContext;
-        if (fnStruct.retType != retVal.getTypeInfo() and fnStruct.retType != ValueType::Any)
+        if (fnStruct.retType != retVal->getTypeInfo() and fnStruct.retType != ValueType::Any)
         {
             static constexpr char ReturnTypeMismatchErrorName[] = "ReturnTypeMismatchError";
-            throw EvaluatorError<ReturnTypeMismatchErrorName>(FStringView(std::format("Function '{}' expects return type '{}', but got type '{}'", fnName.toBasicString(), fnStruct.retType.toString().toBasicString(), retVal.getTypeInfo().toString().toBasicString())), currentAddressInfo);
+            throw EvaluatorError<ReturnTypeMismatchErrorName>(FStringView(std::format("Function '{}' expects return type '{}', but got type '{}'", fnName.toBasicString(), fnStruct.retType.toString().toBasicString(), retVal->getTypeInfo().toString().toBasicString())), currentAddressInfo);
         }
         return retVal;
     }
 
-    Object Evaluator::eval(Ast::Expression exp)
+    ObjectPtr Evaluator::eval(Ast::Expression exp)
     {
         using Fig::Ast::AstType;
         switch (exp->getType())
@@ -255,19 +244,19 @@ namespace Fig
             case AstType::FunctionCall: {
                 auto fnCall = std::dynamic_pointer_cast<Ast::FunctionCallExpr>(exp);
 
-                Object calleeVal = eval(fnCall->callee);
+                ObjectPtr calleeVal = eval(fnCall->callee);
 
-                if (!calleeVal.is<Function>())
+                if (!calleeVal->is<Function>())
                 {
                     static constexpr char NotAFunctionErrorName[] = "NotAFunctionError";
                     throw EvaluatorError<NotAFunctionErrorName>(
                         FStringView(std::format(
                             "'{}' is not a function or callable",
-                            calleeVal.toString().toBasicString())),
+                            calleeVal->toString().toBasicString())),
                         currentAddressInfo);
                 }
 
-                Function fn = calleeVal.as<Function>();
+                Function fn = calleeVal->as<Function>();
 
                 FString fnName = u8"<anonymous>";
                 if (auto var = std::dynamic_pointer_cast<Ast::VarExprAst>(fnCall->callee))
@@ -286,20 +275,20 @@ namespace Fig
                     Ast::Statement retSt = std::make_shared<Ast::ReturnSt>(fn->getExprBody());
                     retSt->setAAI(fn->getExprBody()->getAAI());
                     body->stmts.push_back(retSt);
-                    return Function(
+                    return std::make_shared<Object>(Function(
                         fn->paras,
                         ValueType::Any,
                         body,
-                        currentContext);
+                        currentContext));
                 }
                 else
                 {
                     Ast::BlockStatement body = fn->getBlockBody();
-                    return Function(
+                    return std::make_shared<Object>(Function(
                         fn->paras,
                         ValueType::Any,
                         body,
-                        currentContext);
+                        currentContext));
                 }
             }
             case AstType::InitExpr: {
@@ -309,13 +298,13 @@ namespace Fig
                     static constexpr char StructNotFoundErrorName[] = "StructNotFoundError";
                     throw EvaluatorError<StructNotFoundErrorName>(FStringView(std::format("Structure type '{}' not found", initExpr->structName.toBasicString())), initExpr->getAAI());
                 }
-                Object structTypeVal = currentContext->get(initExpr->structName).value();
-                if (!structTypeVal.is<StructType>())
+                ObjectPtr structTypeVal = currentContext->get(initExpr->structName).value();
+                if (!structTypeVal->is<StructType>())
                 {
                     static constexpr char NotAStructTypeErrorName[] = "NotAStructTypeError";
                     throw EvaluatorError<NotAStructTypeErrorName>(FStringView(std::format("'{}' is not a structure type", initExpr->structName.toBasicString())), initExpr->getAAI());
                 }
-                const StructType &structT = structTypeVal.as<StructType>();
+                const StructType &structT = structTypeVal->as<StructType>();
                 ContextPtr defContext = structT.defContext; // definition context
                 // check init args
 
@@ -334,7 +323,7 @@ namespace Fig
                     throw EvaluatorError<StructInitArgumentMismatchErrorName>(FStringView(std::format("Structure '{}' expects {} to {} fields, but {} were provided", initExpr->structName.toBasicString(), minArgs, maxArgs, initExpr->args.size())), initExpr->getAAI());
                 }
 
-                std::vector<std::pair<FString, Object>> evaluatedArgs;
+                std::vector<std::pair<FString, ObjectPtr>> evaluatedArgs;
                 for (const auto &[argName, argExpr] : initExpr->args)
                 {
                     evaluatedArgs.push_back({argName, eval(argExpr)});
@@ -363,26 +352,26 @@ namespace Fig
                                 ContextPtr previousContext = currentContext;
                                 currentContext = defContext; // evaluate default value in definition context
 
-                                Object defaultVal = eval(field.defaultValue); // it can't be null here
+                                ObjectPtr defaultVal = eval(field.defaultValue); // it can't be null here
 
                                 currentContext = previousContext;
 
                                 // type check
-                                if (expectedType != defaultVal.getTypeInfo() && expectedType != ValueType::Any)
+                                if (expectedType != defaultVal->getTypeInfo() && expectedType != ValueType::Any)
                                 {
                                     static constexpr char StructFieldTypeMismatchErrorName[] = "StructFieldTypeMismatchError";
-                                    throw EvaluatorError<StructFieldTypeMismatchErrorName>(FStringView(std::format("In structure '{}', field '{}' expects type '{}', but got type '{}'", initExpr->structName.toBasicString(), fieldName.toBasicString(), expectedType.toString().toBasicString(), defaultVal.getTypeInfo().toString().toBasicString())), initExpr->getAAI());
+                                    throw EvaluatorError<StructFieldTypeMismatchErrorName>(FStringView(std::format("In structure '{}', field '{}' expects type '{}', but got type '{}'", initExpr->structName.toBasicString(), fieldName.toBasicString(), expectedType.toString().toBasicString(), defaultVal->getTypeInfo().toString().toBasicString())), initExpr->getAAI());
                                 }
 
                                 instanceCtx->def(fieldName, expectedType, field.am, defaultVal);
                                 continue;
                             }
 
-                            const Object &argVal = evaluatedArgs[i].second;
-                            if (expectedType != argVal.getTypeInfo() && expectedType != ValueType::Any)
+                            const ObjectPtr &argVal = evaluatedArgs[i].second;
+                            if (expectedType != argVal->getTypeInfo() && expectedType != ValueType::Any)
                             {
                                 static constexpr char StructFieldTypeMismatchErrorName[] = "StructFieldTypeMismatchError";
-                                throw EvaluatorError<StructFieldTypeMismatchErrorName>(FStringView(std::format("In structure '{}', field '{}' expects type '{}', but got type '{}'", initExpr->structName.toBasicString(), fieldName.toBasicString(), expectedType.toString().toBasicString(), argVal.getTypeInfo().toString().toBasicString())), initExpr->getAAI());
+                                throw EvaluatorError<StructFieldTypeMismatchErrorName>(FStringView(std::format("In structure '{}', field '{}' expects type '{}', but got type '{}'", initExpr->structName.toBasicString(), fieldName.toBasicString(), expectedType.toString().toBasicString(), argVal->getTypeInfo().toString().toBasicString())), initExpr->getAAI());
                             }
                             instanceCtx->def(fieldName, expectedType, field.am, argVal);
                         }
@@ -403,32 +392,32 @@ namespace Fig
                             {
                                 // use default value
                                 ContextPtr previousContext = currentContext;
-                                currentContext = defContext;                 // evaluate default value in definition context
-                                Object defaultVal = eval(field.defaultValue); // it can't be null here
+                                currentContext = defContext;                     // evaluate default value in definition context
+                                ObjectPtr defaultVal = eval(field.defaultValue); // it can't be null here
                                 currentContext = previousContext;
 
                                 // type check
                                 const TypeInfo &expectedType = field.type;
-                                if (expectedType != defaultVal.getTypeInfo() && expectedType != ValueType::Any)
+                                if (expectedType != defaultVal->getTypeInfo() && expectedType != ValueType::Any)
                                 {
                                     static constexpr char StructFieldTypeMismatchErrorName[] = "StructFieldTypeMismatchError";
-                                    throw EvaluatorError<StructFieldTypeMismatchErrorName>(FStringView(std::format("In structure '{}', field '{}' expects type '{}', but got type '{}'", initExpr->structName.toBasicString(), fieldName.toBasicString(), expectedType.toString().toBasicString(), defaultVal.getTypeInfo().toString().toBasicString())), initExpr->getAAI());
+                                    throw EvaluatorError<StructFieldTypeMismatchErrorName>(FStringView(std::format("In structure '{}', field '{}' expects type '{}', but got type '{}'", initExpr->structName.toBasicString(), fieldName.toBasicString(), expectedType.toString().toBasicString(), defaultVal->getTypeInfo().toString().toBasicString())), initExpr->getAAI());
                                 }
 
                                 instanceCtx->def(fieldName, field.type, field.am, defaultVal);
                                 continue;
                             }
-                            const Object &argVal = evaluatedArgs[i].second;
-                            if (field.type != argVal.getTypeInfo() && field.type != ValueType::Any)
+                            const ObjectPtr &argVal = evaluatedArgs[i].second;
+                            if (field.type != argVal->getTypeInfo() && field.type != ValueType::Any)
                             {
                                 static constexpr char StructFieldTypeMismatchErrorName[] = "StructFieldTypeMismatchError";
-                                throw EvaluatorError<StructFieldTypeMismatchErrorName>(FStringView(std::format("In structure '{}', field '{}' expects type '{}', but got type '{}'", initExpr->structName.toBasicString(), fieldName.toBasicString(), field.type.toString().toBasicString(), argVal.getTypeInfo().toString().toBasicString())), initExpr->getAAI());
+                                throw EvaluatorError<StructFieldTypeMismatchErrorName>(FStringView(std::format("In structure '{}', field '{}' expects type '{}', but got type '{}'", initExpr->structName.toBasicString(), fieldName.toBasicString(), field.type.toString().toBasicString(), argVal->getTypeInfo().toString().toBasicString())), initExpr->getAAI());
                             }
                             instanceCtx->def(fieldName, field.type, field.am, argVal);
                         }
                     }
                 }
-                return StructInstance(structT.id, instanceCtx);
+                return std::make_shared<Object>(StructInstance(structT.id, instanceCtx));
             }
             default:
                 throw RuntimeError(FStringView("Unknown expression type:" + std::to_string(static_cast<int>(exp->getType()))));
@@ -472,13 +461,13 @@ namespace Fig
                     static constexpr char RedeclarationErrorName[] = "RedeclarationError";
                     throw EvaluatorError<RedeclarationErrorName>(FStringView(std::format("Variable '{}' already defined in this scope", varDef->name.toBasicString())), currentAddressInfo);
                 }
-                Object val;
+                ObjectPtr val;
                 TypeInfo varTypeInfo;
                 if (varDef->typeName == Parser::varDefTypeFollowed)
                 {
                     // has expr
                     val = eval(varDef->expr);
-                    varTypeInfo = val.getTypeInfo();
+                    varTypeInfo = val->getTypeInfo();
                 }
                 else if (varDef->expr)
                 {
@@ -486,7 +475,7 @@ namespace Fig
                     if (varDef->typeName != ValueType::Any.name)
                     {
                         TypeInfo expectedType(varDef->typeName);
-                        TypeInfo actualType = val.getTypeInfo();
+                        TypeInfo actualType = val->getTypeInfo();
                         if (expectedType != actualType and expectedType != ValueType::Any)
                         {
                             static constexpr char VariableTypeMismatchErrorName[] = "VariableTypeMismatchError";
@@ -497,7 +486,7 @@ namespace Fig
                 else if (!varDef->typeName.empty())
                 {
                     varTypeInfo = TypeInfo(varDef->typeName); // may throw
-                    val = Object::defaultValue(varTypeInfo);
+                    val = std::make_shared<Object>(Object::defaultValue(varTypeInfo));
                 }
                 AccessModifier am = (varDef->isPublic ? (varDef->isConst ? AccessModifier::PublicConst : AccessModifier::Public) : (varDef->isConst ? AccessModifier::Const : AccessModifier::Normal));
                 currentContext->def(varDef->name, varTypeInfo, am, val);
@@ -524,7 +513,7 @@ namespace Fig
                     fnDef->name,
                     ValueType::Function,
                     am,
-                    Object(Function(
+                    std::make_shared<Object>(Function(
                         fnDef->paras,
                         TypeInfo(fnDef->retType),
                         fnDef->body,
@@ -556,7 +545,7 @@ namespace Fig
                     stDef->name,
                     ValueType::StructType,
                     am,
-                    Object(StructType(
+                    std::make_shared<Object>(StructType(
                         defContext,
                         fields)));
                 return StatementResult::normal();
@@ -589,26 +578,26 @@ namespace Fig
             // };
             case AstType::IfSt: {
                 auto ifSt = std::dynamic_pointer_cast<Ast::IfSt>(stmt);
-                Object condVal = eval(ifSt->condition);
-                if (condVal.getTypeInfo() != ValueType::Bool)
+                ObjectPtr condVal = eval(ifSt->condition);
+                if (condVal->getTypeInfo() != ValueType::Bool)
                 {
                     static constexpr char ConditionTypeErrorName[] = "ConditionTypeError";
                     throw EvaluatorError<ConditionTypeErrorName>(FStringView(u8"If condition must be boolean"), currentAddressInfo);
                 }
-                if (condVal.as<Bool>().getValue())
+                if (condVal->as<ValueType::BoolClass>())
                 {
                     return evalBlockStatement(ifSt->body);
                 }
                 // else
                 for (const auto &elif : ifSt->elifs)
                 {
-                    Object elifCondVal = eval(elif->condition);
-                    if (elifCondVal.getTypeInfo() != ValueType::Bool)
+                    ObjectPtr elifCondVal = eval(elif->condition);
+                    if (elifCondVal->getTypeInfo() != ValueType::Bool)
                     {
                         static constexpr char ConditionTypeErrorName[] = "ConditionTypeError";
                         throw EvaluatorError<ConditionTypeErrorName>(FStringView(u8"Else-if condition must be boolean"), currentAddressInfo);
                     }
-                    if (elifCondVal.as<Bool>().getValue())
+                    if (elifCondVal->as<ValueType::BoolClass>())
                     {
                         return evalBlockStatement(elif->body);
                     }
@@ -623,13 +612,13 @@ namespace Fig
                 auto whileSt = std::dynamic_pointer_cast<Ast::WhileSt>(stmt);
                 while (true)
                 {
-                    Object condVal = eval(whileSt->condition);
-                    if (condVal.getTypeInfo() != ValueType::Bool)
+                    ObjectPtr condVal = eval(whileSt->condition);
+                    if (condVal->getTypeInfo() != ValueType::Bool)
                     {
                         static constexpr char ConditionTypeErrorName[] = "ConditionTypeError";
                         throw EvaluatorError<ConditionTypeErrorName>(FStringView(u8"While condition must be boolean"), whileSt->condition->getAAI());
                     }
-                    if (!condVal.as<Bool>().getValue())
+                    if (!condVal->as<ValueType::BoolClass>())
                     {
                         break;
                     }
@@ -667,13 +656,13 @@ namespace Fig
 
                 while (true) // use while loop to simulate for loop, cause we need to check condition type every iteration
                 {
-                    Object condVal = eval(forSt->condition);
-                    if (condVal.getTypeInfo() != ValueType::Bool)
+                    ObjectPtr condVal = eval(forSt->condition);
+                    if (condVal->getTypeInfo() != ValueType::Bool)
                     {
                         static constexpr char ConditionTypeErrorName[] = "ConditionTypeError";
                         throw EvaluatorError<ConditionTypeErrorName>(FStringView(u8"For condition must be boolean"), forSt->condition->getAAI());
                     }
-                    if (!condVal.as<Bool>().getValue())
+                    if (!condVal->as<ValueType::BoolClass>())
                     {
                         break;
                     }

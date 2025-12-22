@@ -15,7 +15,7 @@ namespace Fig
     private:
         FString scopeName;
         std::unordered_map<FString, TypeInfo> varTypes;
-        std::unordered_map<FString, Object> variables;
+        std::unordered_map<FString, ObjectPtr> variables;
         std::unordered_map<FString, AccessModifier> ams;
 
         std::unordered_map<std::size_t, Function> functions;
@@ -28,7 +28,7 @@ namespace Fig
         Context(const Context &) = default;
         Context(const FString &name, ContextPtr p = nullptr) :
             scopeName(name), parent(p) {}
-        Context(const FString &name, std::unordered_map<FString, TypeInfo> types, std::unordered_map<FString, Object> vars, std::unordered_map<FString, AccessModifier> _ams) :
+        Context(const FString &name, std::unordered_map<FString, TypeInfo> types, std::unordered_map<FString, ObjectPtr> vars, std::unordered_map<FString, AccessModifier> _ams) :
             scopeName(std::move(name)), varTypes(std::move(types)), variables(std::move(vars)), ams(std::move(_ams)) {}
 
         void setParent(ContextPtr _parent)
@@ -46,7 +46,7 @@ namespace Fig
             return scopeName;
         }
 
-        std::optional<Object> get(const FString &name)
+        std::optional<ObjectPtr> get(const FString &name)
         {
             auto it = variables.find(name);
             if (it != variables.end())
@@ -73,13 +73,13 @@ namespace Fig
         ContextPtr createCopyWithPublicVariables()
         {
             std::unordered_map<FString, TypeInfo> _varTypes;
-            std::unordered_map<FString, Object> _variables;
+            std::unordered_map<FString, ObjectPtr> _variables;
             std::unordered_map<FString, AccessModifier> _ams;
             for (const auto &p : this->variables)
             {
                 if (isVariablePublic(p.first))
                 {
-                    _variables[p.first] = p.second;
+                    _variables[p.first] = std::make_shared<Object>(*p.second); // copy 
                     _varTypes[p.first] = varTypes[p.first];
                     _ams[p.first] = ams[p.first];
                 }
@@ -104,7 +104,7 @@ namespace Fig
                 {
                     throw RuntimeError(FStringView(std::format("Variable '{}' is immutable", name.toBasicString())));
                 }
-                variables[name] = value;
+                variables[name] = std::make_shared<Object>(value);
             }
             else if (parent != nullptr)
             {
@@ -115,25 +115,25 @@ namespace Fig
                 throw RuntimeError(FStringView(std::format("Variable '{}' not defined", name.toBasicString())));
             }
         }
-        void def(const FString &name, const TypeInfo &ti, AccessModifier am, const Object &value = Object::getNullInstance())
+        void def(const FString &name, const TypeInfo &ti, AccessModifier am, const ObjectPtr &value = Object::getNullInstance())
         {
             if (containsInThisScope(name))
             {
                 throw RuntimeError(FStringView(std::format("Variable '{}' already defined in this scope", name.toBasicString())));
             }
-            variables[name] = value;
+            variables[name] = std::make_shared<Object>(*value);
             varTypes[name] = ti;
             ams[name] = am;
 
-            if (ti == ValueType::Function and value.getTypeInfo() == ValueType::Function)
+            if (ti == ValueType::Function and value->getTypeInfo() == ValueType::Function)
             {
-                auto &fn = value.as<Function>();
+                auto &fn = value->as<Function>();
                 functions[fn.id] = fn;
                 functionNames[fn.id] = name;
             }
             if (ti == ValueType::StructType)
             {
-                auto &st = value.as<StructType>();
+                auto &st = value->as<StructType>();
                 structTypeNames[st.id] = name;
             }
         }

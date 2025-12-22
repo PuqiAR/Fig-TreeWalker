@@ -1,6 +1,5 @@
 #pragma once
 
-#include <Value/BaseValue.hpp>
 #include <context_forward.hpp>
 
 namespace Fig

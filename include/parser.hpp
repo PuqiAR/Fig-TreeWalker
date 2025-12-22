@@ -298,7 +298,7 @@ namespace Fig
         static constexpr FString varDefTypeFollowed = u8"(Followed)";
 
         Ast::VarDef __parseVarDef(bool); // entry: current is keyword `var` or `const` (isConst: Bool)
-        Object __parseValue();
+        ObjectPtr __parseValue();
         Ast::ValueExpr __parseValueExpr();
         Ast::FunctionParameters __parseFunctionParameters(); // entry: current is Token::LeftParen
         Ast::BlockStatement __parseBlockStatement();         // entry: current is Token::LeftBrace

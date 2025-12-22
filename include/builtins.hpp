@@ -13,13 +13,13 @@ namespace Fig
 {
     namespace Builtins
     {
-        const std::unordered_map<FString, Object> builtinValues = {
+        const std::unordered_map<FString, ObjectPtr> builtinValues = {
             {u8"null", Object::getNullInstance()},
-            {u8"true", Object(true)},
-            {u8"false", Object(false)},
+            {u8"true", Object::getTrueInstance()},
+            {u8"false", Object::getFalseInstance()},
         };
 
-        using BuiltinFunction = std::function<Object(const std::vector<Object> &)>;
+        using BuiltinFunction = std::function<ObjectPtr(const std::vector<ObjectPtr> &)>;
 
         const std::unordered_map<FString, int> builtinFunctionArgCounts = {
             {u8"__fstdout_print", -1},   // variadic
@@ -35,91 +35,91 @@ namespace Fig
         };
 
         const std::unordered_map<FString, BuiltinFunction> builtinFunctions{
-            {u8"__fstdout_print", [](const std::vector<Object> &args) -> Object {
+            {u8"__fstdout_print", [](const std::vector<ObjectPtr> &args) -> ObjectPtr {
                  for (auto arg : args)
                  {
-                     std::print("{}", arg.toString().toBasicString());
+                     std::print("{}", arg->toString().toBasicString());
                  }
-                 return Object(Int(args.size()));
+                 return std::make_shared<Object>(ValueType::IntClass(args.size()));
              }},
-            {u8"__fstdout_println", [](const std::vector<Object> &args) -> Object {
+            {u8"__fstdout_println", [](const std::vector<ObjectPtr> &args) -> ObjectPtr {
                  for (auto arg : args)
                  {
-                     std::print("{}", arg.toString().toBasicString());
+                     std::print("{}", arg->toString().toBasicString());
                  }
                  std::print("\n");
-                 return Object(Int(args.size()));
+                 return std::make_shared<Object>(ValueType::IntClass(args.size()));
              }},
-            {u8"__fstdin_read", [](const std::vector<Object> &args) -> Object {
+            {u8"__fstdin_read", [](const std::vector<ObjectPtr> &args) -> ObjectPtr {
                  std::string input;
                  std::cin >> input;
-                 return Object(FString::fromBasicString(input));
+                 return std::make_shared<Object>(FString::fromBasicString(input));
              }},
-            {u8"__fstdin_readln", [](const std::vector<Object> &args) -> Object {
+            {u8"__fstdin_readln", [](const std::vector<ObjectPtr> &args) -> ObjectPtr {
                  std::string line;
                  std::getline(std::cin, line);
-                 return Object(FString::fromBasicString(line));
+                 return std::make_shared<Object>(FString::fromBasicString(line));
              }},
-            {u8"__fvalue_type", [](const std::vector<Object> &args) -> Object {
-                 return Object(args[0].getTypeInfo().toString());
+            {u8"__fvalue_type", [](const std::vector<ObjectPtr> &args) -> ObjectPtr {
+                 return std::make_shared<Object>(args[0]->getTypeInfo().toString());
              }},
-            {u8"__fvalue_int_parse", [](const std::vector<Object> &args) -> Object {
-                 FString str = args[0].as<String>().getValue();
+            {u8"__fvalue_int_parse", [](const std::vector<ObjectPtr> &args) -> ObjectPtr {
+                 FString str = args[0]->as<ValueType::StringClass>();
                  try
                  {
                      ValueType::IntClass val = std::stoi(str.toBasicString());
-                     return Object(Int(val));
+                     return std::make_shared<Object>(val);
                  }
                  catch (...)
                  {
                      throw RuntimeError(FStringView(std::format("Invalid int string for parsing", str.toBasicString())));
                  }
              }},
-            {u8"__fvalue_int_from", [](const std::vector<Object> &args) -> Object {
-                    Object val = args[0];
-                    if (val.is<Double>())
-                    {
-                        return Object(Int(static_cast<ValueType::IntClass>(val.as<Double>().getValue())));
-                    }
-                    else if (val.is<Bool>())
-                    {
-                        return Object(Int(val.as<Bool>().getValue() ? 1 : 0));
-                    }
-                    else
-                    {
-                        throw RuntimeError(FStringView(std::format("Type '{}' cannot be converted to int", val.getTypeInfo().toString().toBasicString())));
-                    }
+            {u8"__fvalue_int_from", [](const std::vector<ObjectPtr> &args) -> ObjectPtr {
+                 ObjectPtr val = args[0];
+                 if (val->is<ValueType::DoubleClass>())
+                 {
+                     return std::make_shared<Object>(static_cast<ValueType::IntClass>(val->as<ValueType::DoubleClass>()));
+                 }
+                 else if (val->is<ValueType::BoolClass>())
+                 {
+                     return std::make_shared<Object>(static_cast<ValueType::IntClass>(val->as<ValueType::BoolClass>() ? 1 : 0));
+                 }
+                 else
+                 {
+                     throw RuntimeError(FStringView(std::format("Type '{}' cannot be converted to int", val->getTypeInfo().toString().toBasicString())));
+                 }
              }},
-            {u8"__fvalue_double_parse", [](const std::vector<Object> &args) -> Object {
-                    FString str = args[0].as<String>().getValue();
-                    try
-                    {
-                        ValueType::DoubleClass val = std::stod(str.toBasicString());
-                        return Object(Double(val));
-                    }
-                    catch (...)
-                    {
-                        throw RuntimeError(FStringView(std::format("Invalid double string for parsing", str.toBasicString())));
-                    }
+            {u8"__fvalue_double_parse", [](const std::vector<ObjectPtr> &args) -> ObjectPtr {
+                 FString str = args[0]->as<ValueType::StringClass>();
+                 try
+                 {
+                     ValueType::DoubleClass val = std::stod(str.toBasicString());
+                     return std::make_shared<Object>(ValueType::DoubleClass(val));
+                 }
+                 catch (...)
+                 {
+                     throw RuntimeError(FStringView(std::format("Invalid double string for parsing", str.toBasicString())));
+                 }
              }},
-            {u8"__fvalue_double_from", [](const std::vector<Object> &args) -> Object {
-                    Object val = args[0];
-                    if (val.is<Int>())
-                    {
-                        return Object(Double(static_cast<ValueType::DoubleClass>(val.as<Int>().getValue())));
-                    }
-                    else if (val.is<Bool>())
-                    {
-                        return Object(Double(val.as<Bool>().getValue() ? 1.0 : 0.0));
-                    }
-                    else
-                    {
-                        throw RuntimeError(FStringView(std::format("Type '{}' cannot be converted to double", val.getTypeInfo().toString().toBasicString())));
-                    }
+            {u8"__fvalue_double_from", [](const std::vector<ObjectPtr> &args) -> ObjectPtr {
+                 ObjectPtr val = args[0];
+                 if (val->is<ValueType::IntClass>())
+                 {
+                     return std::make_shared<Object>(static_cast<ValueType::DoubleClass>(val->as<ValueType::IntClass>()));
+                 }
+                 else if (val->is<ValueType::BoolClass>())
+                 {
+                     return std::make_shared<Object>(ValueType::DoubleClass(val->as<ValueType::BoolClass>() ? 1.0 : 0.0));
+                 }
+                 else
+                 {
+                     throw RuntimeError(FStringView(std::format("Type '{}' cannot be converted to double", val->getTypeInfo().toString().toBasicString())));
+                 }
              }},
-             {u8"__fvalue_string_from", [](const std::vector<Object> &args) -> Object {
-                Object val = args[0];
-                return Object(val.toString());
+            {u8"__fvalue_string_from", [](const std::vector<ObjectPtr> &args) -> ObjectPtr {
+                 ObjectPtr val = args[0];
+                 return std::make_shared<Object>(val->toString());
              }},
 
         };

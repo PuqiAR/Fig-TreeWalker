@@ -1,11 +1,9 @@
 #pragma once
-#include <Value/BaseValue.hpp>
-#include <Value/valueError.hpp>
 #include <Value/function.hpp>
 #include <Value/structType.hpp>
 #include <Value/structInstance.hpp>
-
 #include <Value/Type.hpp>
+#include <Value/valueError.hpp>
 
 #include <variant>
 #include <cmath>
@@ -30,11 +28,11 @@ namespace Fig
     {
     public:
         using VariantType = std::variant<
-            Null,
-            Int,
-            Double,
-            String,
-            Bool,
+            ValueType::NullClass,
+            ValueType::IntClass,
+            ValueType::DoubleClass,
+            ValueType::StringClass,
+            ValueType::BoolClass,
             Function,
             StructType,
             StructInstance>;
@@ -42,62 +40,29 @@ namespace Fig
         VariantType data;
 
         Object() :
-            data(Null{}) {}
-        Object(const Null &n) :
-            data(std::in_place_type<Null>, n) {}
-        Object(const Int &i) :
-            data(std::in_place_type<Int>, i) {}
-        Object(const Double &d)
+            data(ValueType::NullClass{}) {}
+        Object(const ValueType::NullClass &n) :
+            data(n) {}
+        Object(const ValueType::IntClass &i) :
+            data(i) {}
+        Object(const ValueType::DoubleClass &d)
         {
-            ValueType::IntClass casted = static_cast<ValueType::IntClass>(d.getValue());
-            if (casted == d.getValue())
-                data.emplace<Int>(casted);
+            ValueType::IntClass casted = static_cast<ValueType::IntClass>(d);
+            if (casted == d)
+                data = casted;
             else
-                data.emplace<Double>(d);
+                data = d;
         }
-        Object(const String &s) :
-            data(std::in_place_type<String>, s) {}
-        Object(const Bool &b) :
-            data(std::in_place_type<Bool>, b) {}
+        Object(const ValueType::StringClass &s) :
+            data(s) {}
+        Object(const ValueType::BoolClass &b) :
+            data(b) {}
         Object(const Function &f) :
-            data(std::in_place_type<Function>, f) {}
+            data(f) {}
         Object(const StructType &s) :
-            data(std::in_place_type<StructType>, s) {}
+            data(s) {}
         Object(const StructInstance &s) :
-            data(std::in_place_type<StructInstance>, s) {}
-
-        template <typename T,
-                  typename = std::enable_if_t<
-                      std::is_same_v<T, ValueType::IntClass>
-                      || std::is_same_v<T, ValueType::DoubleClass>
-                      || std::is_same_v<T, ValueType::StringClass>
-                      || std::is_same_v<T, ValueType::BoolClass>
-                      || std::is_same_v<T, Function>
-                      || std::is_same_v<T, StructType>
-                      || std::is_same_v<T, StructInstance>>>
-        Object(const T &val)
-        {
-            if constexpr (std::is_same_v<T, ValueType::IntClass>)
-                data.emplace<Int>(val);
-            else if constexpr (std::is_same_v<T, ValueType::DoubleClass>)
-            {
-                ValueType::IntClass casted = static_cast<ValueType::IntClass>(val);
-                if (casted == val)
-                    data.emplace<Int>(casted);
-                else
-                    data.emplace<Double>(val);
-            }
-            else if constexpr (std::is_same_v<T, ValueType::StringClass>)
-                data.emplace<String>(val);
-            else if constexpr (std::is_same_v<T, ValueType::BoolClass>)
-                data.emplace<Bool>(val);
-            else if constexpr (std::is_same_v<T, Function>)
-                data.emplace<Function>(val);
-            else if constexpr (std::is_same_v<T, StructType>)
-                data.emplace<StructType>(val);
-            else if constexpr (std::is_same_v<T, StructInstance>)
-                data.emplace<StructInstance>(val);
-        }
+            data(s) {}
 
         Object(const Object &) = default;
         Object(Object &&) noexcept = default;
@@ -107,15 +72,15 @@ namespace Fig
         static Object defaultValue(TypeInfo ti)
         {
             if (ti == ValueType::Int)
-                return Object(Int(0));
+                return Object(ValueType::IntClass(0));
             else if (ti == ValueType::Double)
-                return Object(Double(0.0));
+                return Object(ValueType::DoubleClass(0.0));
             else if (ti == ValueType::String)
-                return Object(String(u8""));
+                return Object(ValueType::StringClass(u8""));
             else if (ti == ValueType::Bool)
-                return Object(Bool(false));
+                return Object(ValueType::BoolClass(false));
             else
-                return getNullInstance();
+                return *getNullInstance();
         }
 
         template <typename T>
@@ -136,25 +101,35 @@ namespace Fig
             return std::get<T>(data);
         }
 
-        static Object getNullInstance()
+        static std::shared_ptr<Object> getNullInstance()
         {
-            static Object v(Null{});
-            return v;
+            static std::shared_ptr<Object> n = std::make_shared<Object>(ValueType::NullClass{});
+            return n;
+        }
+        static std::shared_ptr<Object> getTrueInstance()
+        {
+            static std::shared_ptr<Object> t = std::make_shared<Object>(true);
+            return t;
+        }
+        static std::shared_ptr<Object> getFalseInstance()
+        {
+            static std::shared_ptr<Object> f = std::make_shared<Object>(false);
+            return f;
         }
 
         TypeInfo getTypeInfo() const
         {
             return std::visit([](auto &&val) -> TypeInfo {
                 using T = std::decay_t<decltype(val)>;
-                if constexpr (std::is_same_v<T, Null>)
+                if constexpr (std::is_same_v<T, ValueType::NullClass>)
                     return ValueType::Null;
-                else if constexpr (std::is_same_v<T, Int>)
+                else if constexpr (std::is_same_v<T, ValueType::IntClass>)
                     return ValueType::Int;
-                else if constexpr (std::is_same_v<T, Double>)
+                else if constexpr (std::is_same_v<T, ValueType::DoubleClass>)
                     return ValueType::Double;
-                else if constexpr (std::is_same_v<T, String>)
+                else if constexpr (std::is_same_v<T, ValueType::StringClass>)
                     return ValueType::String;
-                else if constexpr (std::is_same_v<T, Bool>)
+                else if constexpr (std::is_same_v<T, ValueType::BoolClass>)
                     return ValueType::Bool;
                 else if constexpr (std::is_same_v<T, Function>)
                     return ValueType::Function;
@@ -168,26 +143,26 @@ namespace Fig
                               data);
         }
 
-        bool isNull() const { return is<Null>(); }
-        bool isNumeric() const { return is<Int>() || is<Double>(); }
+        bool isNull() const { return is<ValueType::NullClass>(); }
+        bool isNumeric() const { return is<ValueType::IntClass>() || is<ValueType::DoubleClass>(); }
 
         ValueType::DoubleClass getNumericValue() const
         {
-            if (is<Int>())
-                return static_cast<ValueType::DoubleClass>(as<Int>().getValue());
-            else if (is<Double>())
-                return as<Double>().getValue();
+            if (is<ValueType::IntClass>())
+                return static_cast<ValueType::DoubleClass>(as<ValueType::IntClass>());
+            else if (is<ValueType::DoubleClass>())
+                return as<ValueType::DoubleClass>();
             else
                 throw RuntimeError(u8"getNumericValue: Not a numeric value");
         }
 
         FString toString() const
         {
-            if (is<Null>()) return FString(u8"null");
-            if (is<Int>()) return FString(std::to_string(as<Int>().getValue()));
-            if (is<Double>()) return FString(std::to_string(as<Double>().getValue()));
-            if (is<String>()) return as<String>().getValue();
-            if (is<Bool>()) return as<Bool>().getValue() ? FString(u8"true") : FString(u8"false");
+            if (is<ValueType::NullClass>()) return FString(u8"null");
+            if (is<ValueType::IntClass>()) return FString(std::to_string(as<ValueType::IntClass>()));
+            if (is<ValueType::DoubleClass>()) return FString(std::to_string(as<ValueType::DoubleClass>()));
+            if (is<ValueType::StringClass>()) return as<ValueType::StringClass>();
+            if (is<ValueType::BoolClass>()) return as<ValueType::BoolClass>() ? FString(u8"true") : FString(u8"false");
             if (is<Function>())
                 return FString(std::format("<Function {} at {:p}>",
                                            as<Function>().id,
@@ -197,7 +172,7 @@ namespace Fig
                                            as<StructType>().id,
                                            static_cast<const void *>(&as<StructType>())));
             if (is<StructInstance>())
-                return FString(std::format("<Struct Instance('{}') at {:p}>",
+                return FString(std::format("<StructInstance '{}' at {:p}>",
                                            as<StructInstance>().parentId,
                                            static_cast<const void *>(&as<StructInstance>())));
             return FString(u8"<error>");
@@ -220,15 +195,14 @@ namespace Fig
                 throw ValueError(FStringView(makeTypeErrorMessage("Cannot add", "+", lhs, rhs)));
             if (lhs.isNumeric() && rhs.isNumeric())
             {
-                bool lhsIsInt = lhs.is<Int>();
-                bool rhsIsInt = rhs.is<Int>();
-                ValueType::DoubleClass result = lhs.getNumericValue() + rhs.getNumericValue();
-                if (lhsIsInt && rhsIsInt && !isNumberExceededIntLimit(result))
+                bool bothInt = lhs.is<ValueType::IntClass>() && rhs.is<ValueType::IntClass>();
+                auto result = lhs.getNumericValue() + rhs.getNumericValue();
+                if (bothInt && !isNumberExceededIntLimit(result))
                     return Object(static_cast<ValueType::IntClass>(result));
-                return Object(ValueType::DoubleClass(result));
+                return Object(result);
             }
-            if (lhs.is<String>() && rhs.is<String>())
-                return Object(ValueType::StringClass(lhs.as<String>().getValue() + rhs.as<String>().getValue()));
+            if (lhs.is<ValueType::StringClass>() && rhs.is<ValueType::StringClass>())
+                return Object(FString(lhs.as<ValueType::StringClass>() + rhs.as<ValueType::StringClass>()));
             throw ValueError(FStringView(makeTypeErrorMessage("Unsupported operation", "+", lhs, rhs)));
         }
 
@@ -238,12 +212,11 @@ namespace Fig
                 throw ValueError(FStringView(makeTypeErrorMessage("Cannot subtract", "-", lhs, rhs)));
             if (lhs.isNumeric() && rhs.isNumeric())
             {
-                bool lhsIsInt = lhs.is<Int>();
-                bool rhsIsInt = rhs.is<Int>();
-                ValueType::DoubleClass result = lhs.getNumericValue() - rhs.getNumericValue();
-                if (lhsIsInt && rhsIsInt && !isNumberExceededIntLimit(result))
+                bool bothInt = lhs.is<ValueType::IntClass>() && rhs.is<ValueType::IntClass>();
+                auto result = lhs.getNumericValue() - rhs.getNumericValue();
+                if (bothInt && !isNumberExceededIntLimit(result))
                     return Object(static_cast<ValueType::IntClass>(result));
-                return Object(ValueType::DoubleClass(result));
+                return Object(result);
             }
             throw ValueError(FStringView(makeTypeErrorMessage("Unsupported operation", "-", lhs, rhs)));
         }
@@ -254,12 +227,11 @@ namespace Fig
                 throw ValueError(FStringView(makeTypeErrorMessage("Cannot multiply", "*", lhs, rhs)));
             if (lhs.isNumeric() && rhs.isNumeric())
             {
-                bool lhsIsInt = lhs.is<Int>();
-                bool rhsIsInt = rhs.is<Int>();
-                ValueType::DoubleClass result = lhs.getNumericValue() * rhs.getNumericValue();
-                if (lhsIsInt && rhsIsInt && !isNumberExceededIntLimit(result))
+                bool bothInt = lhs.is<ValueType::IntClass>() && rhs.is<ValueType::IntClass>();
+                auto result = lhs.getNumericValue() * rhs.getNumericValue();
+                if (bothInt && !isNumberExceededIntLimit(result))
                     return Object(static_cast<ValueType::IntClass>(result));
-                return Object(ValueType::DoubleClass(result));
+                return Object(result);
             }
             throw ValueError(FStringView(makeTypeErrorMessage("Unsupported operation", "*", lhs, rhs)));
         }
@@ -270,15 +242,14 @@ namespace Fig
                 throw ValueError(FStringView(makeTypeErrorMessage("Cannot divide", "/", lhs, rhs)));
             if (lhs.isNumeric() && rhs.isNumeric())
             {
-                ValueType::DoubleClass rnv = rhs.getNumericValue();
+                auto rnv = rhs.getNumericValue();
                 if (rnv == 0)
                     throw ValueError(FStringView(makeTypeErrorMessage("Division by zero", "/", lhs, rhs)));
-                ValueType::DoubleClass result = lhs.getNumericValue() / rnv;
-                bool lhsIsInt = lhs.is<Int>();
-                bool rhsIsInt = rhs.is<Int>();
-                if (lhsIsInt && rhsIsInt && !isNumberExceededIntLimit(result))
+                bool bothInt = lhs.is<ValueType::IntClass>() && rhs.is<ValueType::IntClass>();
+                auto result = lhs.getNumericValue() / rnv;
+                if (bothInt && !isNumberExceededIntLimit(result))
                     return Object(static_cast<ValueType::IntClass>(result));
-                return Object(ValueType::DoubleClass(result));
+                return Object(result);
             }
             throw ValueError(FStringView(makeTypeErrorMessage("Unsupported operation", "/", lhs, rhs)));
         }
@@ -289,15 +260,14 @@ namespace Fig
                 throw ValueError(FStringView(makeTypeErrorMessage("Cannot modulo", "%", lhs, rhs)));
             if (lhs.isNumeric() && rhs.isNumeric())
             {
-                ValueType::DoubleClass rnv = rhs.getNumericValue();
+                auto rnv = rhs.getNumericValue();
                 if (rnv == 0)
-                    throw ValueError(FStringView(makeTypeErrorMessage("Modulo by zero", "%", lhs, rhs)));
-                ValueType::DoubleClass result = fmod(lhs.getNumericValue(), rnv);
-                bool lhsIsInt = lhs.is<Int>();
-                bool rhsIsInt = rhs.is<Int>();
-                if (lhsIsInt && rhsIsInt && !isNumberExceededIntLimit(result))
+                    throw ValueError(FStringView(makeTypeErrorMessage("Modulo by zero", "/", lhs, rhs)));
+                bool bothInt = lhs.is<ValueType::IntClass>() && rhs.is<ValueType::IntClass>();
+                auto result = std::fmod(lhs.getNumericValue(), rnv);
+                if (bothInt && !isNumberExceededIntLimit(result))
                     return Object(static_cast<ValueType::IntClass>(result));
-                return Object(ValueType::DoubleClass(result));
+                return Object(result);
             }
             throw ValueError(FStringView(makeTypeErrorMessage("Unsupported operation", "%", lhs, rhs)));
         }
@@ -305,123 +275,104 @@ namespace Fig
         // logic
         friend Object operator&&(const Object &lhs, const Object &rhs)
         {
-            if (!lhs.is<Bool>() || !rhs.is<Bool>())
+            if (!lhs.is<ValueType::BoolClass>() || !rhs.is<ValueType::BoolClass>())
                 throw ValueError(FStringView(makeTypeErrorMessage("Logical AND requires bool", "&&", lhs, rhs)));
-            return Object(lhs.as<Bool>().getValue() && rhs.as<Bool>().getValue());
+            return Object(lhs.as<ValueType::BoolClass>() && rhs.as<ValueType::BoolClass>());
         }
 
         friend Object operator||(const Object &lhs, const Object &rhs)
         {
-            if (!lhs.is<Bool>() || !rhs.is<Bool>())
+            if (!lhs.is<ValueType::BoolClass>() || !rhs.is<ValueType::BoolClass>())
                 throw ValueError(FStringView(makeTypeErrorMessage("Logical OR requires bool", "||", lhs, rhs)));
-            return Object(lhs.as<Bool>().getValue() || rhs.as<Bool>().getValue());
+            return Object(lhs.as<ValueType::BoolClass>() || rhs.as<ValueType::BoolClass>());
         }
 
         friend Object operator!(const Object &v)
         {
-            if (!v.is<Bool>())
+            if (!v.is<ValueType::BoolClass>())
                 throw ValueError(FStringView(std::format("Logical NOT requires bool: '{}'", v.getTypeInfo().name.toBasicString())));
-            return Object(!v.as<Bool>().getValue());
+            return Object(!v.as<ValueType::BoolClass>());
         }
 
         friend Object operator-(const Object &v)
         {
             if (v.isNull())
-                throw ValueError(FStringView(std::format("Unary minus cannot be applied to null")));
-            if (v.is<Int>())
-                return Object(-v.as<Int>().getValue());
-            if (v.is<Double>())
-                return Object(-v.as<Double>().getValue());
+                throw ValueError(FStringView(u8"Unary minus cannot be applied to null"));
+            if (v.is<ValueType::IntClass>())
+                return Object(-v.as<ValueType::IntClass>());
+            if (v.is<ValueType::DoubleClass>())
+                return Object(-v.as<ValueType::DoubleClass>());
             throw ValueError(FStringView(std::format("Unary minus requires int or double: '{}'", v.getTypeInfo().name.toBasicString())));
         }
 
         friend Object operator~(const Object &v)
         {
-            if (!v.is<Int>())
+            if (!v.is<ValueType::IntClass>())
                 throw ValueError(FStringView(std::format("Bitwise NOT requires int: '{}'", v.getTypeInfo().name.toBasicString())));
-            return Object(~v.as<Int>().getValue());
+            return Object(~v.as<ValueType::IntClass>());
         }
 
-        // compare
-        friend bool operator==(const Object &lhs, const Object &rhs)
-        {
-            return lhs.data == rhs.data;
-        }
-
-        friend bool operator!=(const Object &lhs, const Object &rhs)
-        {
-            return !(lhs == rhs);
-        }
-
+        // comparison
+        friend bool operator==(const Object &lhs, const Object &rhs) { return lhs.data == rhs.data; }
+        friend bool operator!=(const Object &lhs, const Object &rhs) { return !(lhs == rhs); }
         friend bool operator<(const Object &lhs, const Object &rhs)
         {
-            if (lhs.isNumeric() && rhs.isNumeric())
-                return lhs.getNumericValue() < rhs.getNumericValue();
-            if (lhs.is<String>() && rhs.is<String>())
-                return lhs.as<String>().getValue() < rhs.as<String>().getValue();
+            if (lhs.isNumeric() && rhs.isNumeric()) return lhs.getNumericValue() < rhs.getNumericValue();
+            if (lhs.is<ValueType::StringClass>() && rhs.is<ValueType::StringClass>())
+                return lhs.as<ValueType::StringClass>() < rhs.as<ValueType::StringClass>();
             throw ValueError(FStringView(makeTypeErrorMessage("Unsupported comparison", "<", lhs, rhs)));
         }
-
-        friend bool operator<=(const Object &lhs, const Object &rhs)
-        {
-            return lhs == rhs || lhs < rhs;
-        }
-
+        friend bool operator<=(const Object &lhs, const Object &rhs) { return lhs == rhs || lhs < rhs; }
         friend bool operator>(const Object &lhs, const Object &rhs)
         {
-            if (lhs.isNumeric() && rhs.isNumeric())
-                return lhs.getNumericValue() > rhs.getNumericValue();
-            if (lhs.is<String>() && rhs.is<String>())
-                return lhs.as<String>().getValue() > rhs.as<String>().getValue();
+            if (lhs.isNumeric() && rhs.isNumeric()) return lhs.getNumericValue() > rhs.getNumericValue();
+            if (lhs.is<ValueType::StringClass>() && rhs.is<ValueType::StringClass>())
+                return lhs.as<ValueType::StringClass>() > rhs.as<ValueType::StringClass>();
             throw ValueError(FStringView(makeTypeErrorMessage("Unsupported comparison", ">", lhs, rhs)));
         }
-
-        friend bool operator>=(const Object &lhs, const Object &rhs)
-        {
-            return lhs == rhs || lhs > rhs;
-        }
+        friend bool operator>=(const Object &lhs, const Object &rhs) { return lhs == rhs || lhs > rhs; }
 
         // bitwise
         friend Object bit_and(const Object &lhs, const Object &rhs)
         {
-            if (!lhs.is<Int>() || !rhs.is<Int>())
+            if (!lhs.is<ValueType::IntClass>() || !rhs.is<ValueType::IntClass>())
                 throw ValueError(FStringView(makeTypeErrorMessage("Bitwise AND requires int", "&", lhs, rhs)));
-            return Object(lhs.as<Int>().getValue() & rhs.as<Int>().getValue());
+            return Object(lhs.as<ValueType::IntClass>() & rhs.as<ValueType::IntClass>());
         }
 
         friend Object bit_or(const Object &lhs, const Object &rhs)
         {
-            if (!lhs.is<Int>() || !rhs.is<Int>())
+            if (!lhs.is<ValueType::IntClass>() || !rhs.is<ValueType::IntClass>())
                 throw ValueError(FStringView(makeTypeErrorMessage("Bitwise OR requires int", "|", lhs, rhs)));
-            return Object(lhs.as<Int>().getValue() | rhs.as<Int>().getValue());
+            return Object(lhs.as<ValueType::IntClass>() | rhs.as<ValueType::IntClass>());
         }
 
         friend Object bit_xor(const Object &lhs, const Object &rhs)
         {
-            if (!lhs.is<Int>() || !rhs.is<Int>())
+            if (!lhs.is<ValueType::IntClass>() || !rhs.is<ValueType::IntClass>())
                 throw ValueError(FStringView(makeTypeErrorMessage("Bitwise XOR requires int", "^", lhs, rhs)));
-            return Object(lhs.as<Int>().getValue() ^ rhs.as<Int>().getValue());
+            return Object(lhs.as<ValueType::IntClass>() ^ rhs.as<ValueType::IntClass>());
         }
 
         friend Object bit_not(const Object &v)
         {
-            if (!v.is<Int>())
+            if (!v.is<ValueType::IntClass>())
                 throw ValueError(FStringView(std::format("Bitwise NOT requires int: '{}'", v.getTypeInfo().name.toBasicString())));
-            return Object(~v.as<Int>().getValue());
+            return Object(~v.as<ValueType::IntClass>());
         }
 
         friend Object shift_left(const Object &lhs, const Object &rhs)
         {
-            if (!lhs.is<Int>() || !rhs.is<Int>())
+            if (!lhs.is<ValueType::IntClass>() || !rhs.is<ValueType::IntClass>())
                 throw ValueError(FStringView(makeTypeErrorMessage("Shift left requires int", "<<", lhs, rhs)));
-            return Object(lhs.as<Int>().getValue() << rhs.as<Int>().getValue());
+            return Object(lhs.as<ValueType::IntClass>() << rhs.as<ValueType::IntClass>());
         }
 
         friend Object shift_right(const Object &lhs, const Object &rhs)
         {
-            if (!lhs.is<Int>() || !rhs.is<Int>())
+            if (!lhs.is<ValueType::IntClass>() || !rhs.is<ValueType::IntClass>())
                 throw ValueError(FStringView(makeTypeErrorMessage("Shift right requires int", ">>", lhs, rhs)));
-            return Object(lhs.as<Int>().getValue() >> rhs.as<Int>().getValue());
+            return Object(lhs.as<ValueType::IntClass>() >> rhs.as<ValueType::IntClass>());
         }
 
         friend Object power(const Object &base, const Object &exp)
@@ -430,16 +381,16 @@ namespace Fig
                 throw ValueError(FStringView(makeTypeErrorMessage("Cannot exponentiate", "**", base, exp)));
             if (base.isNumeric() && exp.isNumeric())
             {
-                bool baseIsInt = base.is<Int>();
-                bool expIsInt = exp.is<Int>();
-                ValueType::DoubleClass result = std::pow(base.getNumericValue(), exp.getNumericValue());
-                if (baseIsInt && expIsInt && isDoubleInteger(result) && !isNumberExceededIntLimit(result))
+                bool bothInt = base.is<ValueType::IntClass>() && exp.is<ValueType::IntClass>();
+                auto result = std::pow(base.getNumericValue(), exp.getNumericValue());
+                if (bothInt && !isNumberExceededIntLimit(result))
                     return Object(static_cast<ValueType::IntClass>(result));
-                return Object(ValueType::DoubleClass(result));
+                return Object(result);
             }
             throw ValueError(FStringView(makeTypeErrorMessage("Unsupported operation", "**", base, exp)));
         }
     };
 
     using ObjectPtr = std::shared_ptr<Object>;
+
 } // namespace Fig

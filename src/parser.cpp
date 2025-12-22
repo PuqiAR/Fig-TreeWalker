@@ -78,7 +78,7 @@ namespace Fig
         return makeAst<Ast::VarDefAst>(isPublic, isConst, name, tiName, exp);
     }
 
-    Object Parser::__parseValue()
+    ObjectPtr Parser::__parseValue()
     {
         FString _val = currentToken().getValue();
         if (currentToken().getType() == TokenType::LiteralNumber)
@@ -95,7 +95,7 @@ namespace Fig
                 {
                     throwAddressableError<SyntaxError>(FStringView(u8"Illegal number literal"));
                 }
-                return Object(d);
+                return std::make_shared<Object>(d);
             }
             else
             {
@@ -109,16 +109,16 @@ namespace Fig
                 {
                     throwAddressableError<SyntaxError>(FStringView(u8"Illegal number literal"));
                 }
-                return Object(i);
+                return std::make_shared<Object>(i);
             }
         }
         else if (currentToken().getType() == TokenType::LiteralString)
         {
-            return Object(_val);
+            return std::make_shared<Object>(_val);
         }
         else if (currentToken().getType() == TokenType::LiteralBool)
         {
-            return Object((_val == u8"true" ? true : false));
+            return std::make_shared<Object>((_val == u8"true" ? true : false));
         }
         else if (currentToken().getType() == TokenType::LiteralNull)
         {
@@ -132,7 +132,7 @@ namespace Fig
 
     Ast::ValueExpr Parser::__parseValueExpr()
     {
-        return Ast::ValueExpr(new Ast::ValueExprAst(__parseValue()));
+        return makeAst<Ast::ValueExprAst> (__parseValue());
     }
     Ast::FunctionParameters Parser::__parseFunctionParameters()
     {

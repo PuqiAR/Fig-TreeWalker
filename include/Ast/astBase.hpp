@@ -290,6 +290,7 @@ namespace Fig::Ast
         {TokenType::ShiftRight, Operator::ShiftRight},
 
         // 赋值表达式
+        {TokenType::Assign, Operator::Assign},
         // {TokenType::Walrus, Operator::Walrus}, 
         // 点运算符
         {TokenType::Dot, Operator::Dot},

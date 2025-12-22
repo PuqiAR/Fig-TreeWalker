@@ -4,11 +4,9 @@
 #include <Ast/StructDefSt.hpp>
 
 #include <Value/Type.hpp>
-#include <Value/BaseValue.hpp>
 
 #include <context_forward.hpp>
 #include <atomic>
-#include <memory>
 #include <vector>
 
 namespace Fig
