@@ -1,0 +1,1029 @@
+#include <Evaluator/evaluator.hpp>
+#include <Evaluator/evaluator_error.hpp>
+#include <Module/builtins.hpp>
+#include <Context/context.hpp>
+#include <Utils/utils.hpp>
+
+#include <Parser/parser.hpp>
+
+namespace Fig
+{
+    LvObject Evaluator::evalVarExpr(Ast::VarExpr var, ContextPtr ctx)
+    {
+        const FString &name = var->name;
+        if (!ctx->contains(name))
+        {
+            throw EvaluatorError(u8"UndeclaredIdentifierError", name, var);
+        }
+        return LvObject(ctx->get(name));
+    }
+    LvObject Evaluator::evalMemberExpr(Ast::MemberExpr me, ContextPtr ctx)
+    {
+        LvObject base = evalLv(me->base, ctx);
+        RvObject baseVal = base.get();
+        const FString &member = me->member;
+        if (baseVal->getTypeInfo() != ValueType::StructInstance)
+        {
+            throw EvaluatorError(
+                u8"TypeError",
+                std::format(
+                    "`{}` isn't a struct",
+                    base.name().toBasicString()),
+                me->base);
+        }
+        const StructInstance &si = baseVal->as<StructInstance>();
+        if (!si.localContext->containsInThisScope(member) || !si.localContext->isVariablePublic(member))
+        {
+            throw EvaluatorError(
+                u8"NoAttributeError",
+                std::format(
+                    "`{}` has not attribute '{}'",
+                    baseVal->toString().toBasicString(),
+                    member.toBasicString()),
+                me->base);
+        }
+        return LvObject(si.localContext->get(member));
+    }
+    LvObject Evaluator::evalIndexExpr(Ast::IndexExpr ie, ContextPtr ctx)
+    {
+        LvObject base = evalLv(ie->base, ctx);
+        RvObject index = eval(ie->index, ctx);
+
+        const TypeInfo &type = base.declaredType();
+
+        if (type != ValueType::List
+            && type != ValueType::Tuple
+            && type != ValueType::Map)
+        {
+            throw EvaluatorError(
+                u8"NoSubscriptableError",
+                std::format(
+                    "`{}` object is not subscriptable",
+                    base.declaredType().toString().toBasicString()),
+                ie->base);
+        }
+        // TODO
+        return LvObject();
+    }
+    LvObject Evaluator::evalLv(Ast::Expression exp, ContextPtr ctx)
+    {
+        using Ast::Operator;
+        using Ast::AstType;
+        switch (exp->getType())
+        {
+            case AstType::VarExpr: {
+                Ast::VarExpr var = std::dynamic_pointer_cast<Ast::VarExprAst>(exp);
+                assert(var != nullptr);
+                return evalVarExpr(var, ctx);
+            }
+            case AstType::MemberExpr: {
+                Ast::MemberExpr me = std::dynamic_pointer_cast<Ast::MemberExprAst>(exp);
+                assert(me != nullptr);
+                return evalMemberExpr(me, ctx);
+            }
+            case AstType::IndexExpr: {
+                Ast::IndexExpr ie = std::dynamic_pointer_cast<Ast::IndexExprAst>(exp);
+                assert(ie != nullptr);
+                return evalIndexExpr(ie, ctx);
+            }
+            default: {
+                throw EvaluatorError(u8"TypeError", std::format("Expression '{}' doesn't refer to a lvalue", exp->typeName().toBasicString()), exp);
+            }
+        }
+    }
+
+    RvObject Evaluator::evalBinary(Ast::BinaryExpr bin, ContextPtr ctx)
+    {
+        using Ast::Operator;
+        Operator op = bin->op;
+        Ast::Expression lexp = bin->lexp,
+                        rexp = bin->rexp;
+        switch (op)
+        {
+            case Operator::Add: {
+                ObjectPtr lhs = eval(lexp, ctx);
+                ObjectPtr rhs = eval(rexp, ctx);
+                return std::make_shared<Object>(*lhs + *rhs);
+            }
+            case Operator::Subtract: {
+                ObjectPtr lhs = eval(lexp, ctx);
+                ObjectPtr rhs = eval(rexp, ctx);
+                return std::make_shared<Object>(*lhs - *rhs);
+            };
+            case Operator::Multiply: {
+                ObjectPtr lhs = eval(lexp, ctx);
+                ObjectPtr rhs = eval(rexp, ctx);
+                return std::make_shared<Object>((*lhs) * (*rhs));
+            };
+            case Operator::Divide: {
+                ObjectPtr lhs = eval(lexp, ctx);
+                ObjectPtr rhs = eval(rexp, ctx);
+                return std::make_shared<Object>(*lhs / *rhs);
+            };
+            case Operator::Modulo: {
+                ObjectPtr lhs = eval(lexp, ctx);
+                ObjectPtr rhs = eval(rexp, ctx);
+                return std::make_shared<Object>(*lhs % *rhs);
+            };
+            case Operator::Power: {
+                ObjectPtr lhs = eval(lexp, ctx);
+                ObjectPtr rhs = eval(rexp, ctx);
+                return std::make_shared<Object>(power(*lhs, *rhs));
+            }
+            case Operator::And: {
+                ObjectPtr lhs = eval(lexp, ctx);
+                ObjectPtr rhs = eval(rexp, ctx);
+                return std::make_shared<Object>(*lhs && *rhs);
+            };
+            case Operator::Or: {
+                ObjectPtr lhs = eval(lexp, ctx);
+                ObjectPtr rhs = eval(rexp, ctx);
+                return std::make_shared<Object>(*lhs || *rhs);
+            };
+            case Operator::Equal: {
+                ObjectPtr lhs = eval(lexp, ctx);
+                ObjectPtr rhs = eval(rexp, ctx);
+                return std::make_shared<Object>(*lhs == *rhs);
+            }
+            case Operator::NotEqual: {
+                ObjectPtr lhs = eval(lexp, ctx);
+                ObjectPtr rhs = eval(rexp, ctx);
+                return std::make_shared<Object>(*lhs != *rhs);
+            }
+            case Operator::Less: {
+                ObjectPtr lhs = eval(lexp, ctx);
+                ObjectPtr rhs = eval(rexp, ctx);
+                return std::make_shared<Object>(*lhs < *rhs);
+            }
+            case Operator::LessEqual: {
+                ObjectPtr lhs = eval(lexp, ctx);
+                ObjectPtr rhs = eval(rexp, ctx);
+                return std::make_shared<Object>(*lhs <= *rhs);
+            }
+            case Operator::Greater: {
+                ObjectPtr lhs = eval(lexp, ctx);
+                ObjectPtr rhs = eval(rexp, ctx);
+                return std::make_shared<Object>(*lhs > *rhs);
+            }
+            case Operator::GreaterEqual: {
+                ObjectPtr lhs = eval(lexp, ctx);
+                ObjectPtr rhs = eval(rexp, ctx);
+                return std::make_shared<Object>(*lhs >= *rhs);
+            }
+
+            case Operator::BitAnd: {
+                ObjectPtr lhs = eval(lexp, ctx);
+                ObjectPtr rhs = eval(rexp, ctx);
+                return std::make_shared<Object>(bit_and(*lhs, *rhs));
+            }
+            case Operator::BitOr: {
+                ObjectPtr lhs = eval(lexp, ctx);
+                ObjectPtr rhs = eval(rexp, ctx);
+                return std::make_shared<Object>(bit_or(*lhs, *rhs));
+            }
+            case Operator::BitXor: {
+                ObjectPtr lhs = eval(lexp, ctx);
+                ObjectPtr rhs = eval(rexp, ctx);
+                return std::make_shared<Object>(bit_xor(*lhs, *rhs));
+            }
+            case Operator::ShiftLeft: {
+                ObjectPtr lhs = eval(lexp, ctx);
+                ObjectPtr rhs = eval(rexp, ctx);
+                return std::make_shared<Object>(shift_left(*lhs, *rhs));
+            }
+            case Operator::ShiftRight: {
+                ObjectPtr lhs = eval(lexp, ctx);
+                ObjectPtr rhs = eval(rexp, ctx);
+                return std::make_shared<Object>(shift_right(*lhs, *rhs));
+            }
+            case Operator::Assign: {
+                LvObject lv = evalLv(lexp, ctx);
+                ObjectPtr rhs = eval(rexp, ctx);
+                lv.set(rhs);
+                return rhs;
+            }
+            default:
+                throw EvaluatorError(u8"UnsupportedOp", std::format("Unsupport operator '{}' for binary", magic_enum::enum_name(op)), bin);
+        }
+    }
+    RvObject Evaluator::evalUnary(Ast::UnaryExpr un, ContextPtr ctx)
+    {
+        using Ast::Operator;
+        Operator op = un->op;
+        Ast::Expression exp = un->exp;
+        ObjectPtr value = eval(exp, ctx);
+        switch (op)
+        {
+            case Operator::Not: {
+                return std::make_shared<Object>(!(*value));
+            }
+            case Operator::Subtract: {
+                return std::make_shared<Object>(-(*value));
+            }
+            case Operator::BitNot: {
+                return std::make_shared<Object>(bit_not((*value)));
+            }
+
+            default: {
+                throw EvaluatorError(
+                    u8"UnsupportedOpError",
+                    std::format("Unsupported op '{}' for unary expression",
+                                magic_enum::enum_name(op)),
+                    un);
+            }
+        }
+    }
+    RvObject Evaluator::evalTernary(Ast::TernaryExpr te, ContextPtr ctx)
+    {
+        RvObject condVal = eval(te->condition, ctx);
+        if (condVal->getTypeInfo() != ValueType::Bool)
+        {
+            throw EvaluatorError(
+                u8"TypeError",
+                std::format("Condition must be boolean, got '{}'",
+                            condVal->getTypeInfo().toString().toBasicString()),
+                te->condition);
+        }
+        ValueType::BoolClass cond = condVal->as<ValueType::BoolClass>();
+        return (cond ? eval(te->valueT, ctx) : eval(te->valueF, ctx));
+    }
+
+    RvObject Evaluator::evalFunctionCall(const Function &fn, const Ast::FunctionArguments &fnArgs, const FString &fnName, ContextPtr ctx)
+    {
+        const Function &fnStruct = fn;
+        Ast::FunctionCallArgs evaluatedArgs;
+        if (fnStruct.isBuiltin)
+        {
+            for (const auto &argExpr : fnArgs.argv)
+            {
+                evaluatedArgs.argv.push_back(eval(argExpr, ctx));
+            }
+            if (fnStruct.builtinParamCount != -1 && fnStruct.builtinParamCount != evaluatedArgs.getLength())
+            {
+                throw EvaluatorError(u8"BuiltinArgumentMismatchError",
+                                     std::format("Builtin function '{}' expects {} arguments, but {} were provided",
+                                                 fnName.toBasicString(),
+                                                 fnStruct.builtinParamCount,
+                                                 evaluatedArgs.getLength()),
+                                     fnArgs.argv.back());
+            }
+            return fnStruct.builtin(evaluatedArgs.argv);
+        }
+
+        // check argument, all types of parameters
+        Ast::FunctionParameters fnParas = fnStruct.paras;
+        if (fnArgs.getLength() < fnParas.posParas.size() || fnArgs.getLength() > fnParas.size())
+        {
+            throw EvaluatorError(
+                u8"ArgumentMismatchError",
+                std::format("Function '{}' expects {} to {} arguments, but {} were provided", fnName.toBasicString(), fnParas.posParas.size(), fnParas.size(), fnArgs.getLength()), fnArgs.argv.back());
+        }
+
+        // positional parameters type check
+        size_t i;
+        for (i = 0; i < fnParas.posParas.size(); i++)
+        {
+            TypeInfo expectedType(fnParas.posParas[i].second); // look up type info, if exists a type with the name, use it, else throw
+            ObjectPtr argVal = eval(fnArgs.argv[i], ctx);
+            TypeInfo actualType = argVal->getTypeInfo();
+            if (expectedType != actualType and expectedType != ValueType::Any)
+            {
+                throw EvaluatorError(
+                    u8"ArgumentTypeMismatchError",
+                    std::format("In function '{}', argument '{}' expects type '{}', but got type '{}'",
+                                fnName.toBasicString(),
+                                fnParas.posParas[i].first.toBasicString(),
+                                expectedType.toString().toBasicString(),
+                                actualType.toString().toBasicString()),
+                    fnArgs.argv[i]);
+            }
+            evaluatedArgs.argv.push_back(argVal);
+        }
+        // default parameters type check
+        for (; i < fnArgs.getLength(); i++)
+        {
+            size_t defParamIndex = i - fnParas.posParas.size();
+            TypeInfo expectedType = fnParas.defParas[defParamIndex].second.first;
+
+            ObjectPtr defaultVal = eval(fnParas.defParas[defParamIndex].second.second, ctx);
+            if (expectedType != defaultVal->getTypeInfo() and expectedType != ValueType::Any)
+            {
+                throw EvaluatorError(
+                    u8"DefaultParameterTypeError",
+                    std::format("In function '{}', default parameter '{}' has type '{}', which does not match the expected type '{}'",
+                                fnName.toBasicString(),
+                                fnParas.defParas[defParamIndex].first.toBasicString(),
+                                defaultVal->getTypeInfo().toString().toBasicString(),
+                                expectedType.toString().toBasicString()),
+                    fnArgs.argv[i]);
+            }
+
+            ObjectPtr argVal = eval(fnArgs.argv[i], ctx);
+            TypeInfo actualType = argVal->getTypeInfo();
+            if (expectedType != actualType and expectedType != ValueType::Any)
+            {
+                throw EvaluatorError(
+                    u8"ArgumentTypeMismatchError",
+                    std::format("In function '{}', argument '{}' expects type '{}', but got type '{}'",
+                                fnName.toBasicString(),
+                                fnParas.defParas[defParamIndex].first.toBasicString(),
+                                expectedType.toString().toBasicString(), actualType.toString().toBasicString()),
+                    fnArgs.argv[i]);
+            }
+            evaluatedArgs.argv.push_back(argVal);
+        }
+        // default parameters filling
+        for (; i < fnParas.size(); i++)
+        {
+            size_t defParamIndex = i - fnParas.posParas.size();
+            ObjectPtr defaultVal = eval(fnParas.defParas[defParamIndex].second.second, ctx);
+            evaluatedArgs.argv.push_back(defaultVal);
+        }
+        // create new context for function call
+        auto newContext = std::make_shared<Context>(FString(std::format("<Function {}()>", fnName.toBasicString())),
+                                                    fnStruct.closureContext);
+        // define parameters in new context
+        for (size_t j = 0; j < fnParas.size(); j++)
+        {
+            FString paramName;
+            TypeInfo paramType;
+            if (j < fnParas.posParas.size())
+            {
+                paramName = fnParas.posParas[j].first;
+                paramType = fnParas.posParas[j].second;
+            }
+            else
+            {
+                size_t defParamIndex = j - fnParas.posParas.size();
+                paramName = fnParas.defParas[defParamIndex].first;
+                paramType = fnParas.defParas[defParamIndex].second.first;
+            }
+            AccessModifier argAm = AccessModifier::Const;
+            newContext->def(paramName, paramType, argAm, evaluatedArgs.argv[j]);
+        }
+        // execute function body
+        ObjectPtr retVal = Object::getNullInstance();
+        for (const auto &stmt : fnStruct.body->stmts)
+        {
+            StatementResult sr = evalStatement(stmt, newContext);
+            if (sr.shouldReturn())
+            {
+                retVal = sr.result;
+                break;
+            }
+        }
+        if (fnStruct.retType != retVal->getTypeInfo() and fnStruct.retType != ValueType::Any)
+        {
+            throw EvaluatorError(
+                u8"ReturnTypeMismatchError",
+                std::format("Function '{}' expects return type '{}', but got type '{}'",
+                            fnName.toBasicString(),
+                            fnStruct.retType.toString().toBasicString(),
+                            retVal->getTypeInfo().toString().toBasicString()),
+                fnStruct.body);
+        }
+        return retVal;
+    }
+
+    RvObject Evaluator::eval(Ast::Expression exp, ContextPtr ctx)
+    {
+        using Ast::AstType;
+        AstType type = exp->getType();
+        switch (type)
+        {
+            case AstType::ValueExpr: {
+                auto val = std::dynamic_pointer_cast<Ast::ValueExprAst>(exp);
+                assert(val != nullptr);
+                return val->val;
+            }
+            case AstType::VarExpr: {
+                auto varExpr = std::dynamic_pointer_cast<Ast::VarExprAst>(exp);
+                assert(varExpr != nullptr);
+                return evalVarExpr(varExpr, ctx).get(); // LvObject -> RvObject
+            }
+            case AstType::BinaryExpr: {
+                auto bin = std::dynamic_pointer_cast<Ast::BinaryExprAst>(exp);
+                assert(bin != nullptr);
+                return evalBinary(bin, ctx);
+            }
+            case AstType::UnaryExpr: {
+                auto un = std::dynamic_pointer_cast<Ast::UnaryExprAst>(exp);
+                assert(un != nullptr);
+                return evalUnary(un, ctx);
+            }
+            case AstType::TernaryExpr: {
+                auto te = std::dynamic_pointer_cast<Ast::TernaryExprAst>(exp);
+                assert(te != nullptr);
+                return evalTernary(te, ctx);
+            }
+            case AstType::MemberExpr:
+            case AstType::IndexExpr:
+                return evalLv(exp, ctx).get();
+
+            case AstType::FunctionCall: {
+                auto fnCall = std::dynamic_pointer_cast<Ast::FunctionCallExpr>(exp);
+                assert(fnCall != nullptr);
+
+                Ast::Expression callee = fnCall->callee;
+                ObjectPtr fnObj = eval(callee, ctx);
+                if (fnObj->getTypeInfo() != ValueType::Function)
+                {
+                    throw EvaluatorError(
+                        u8"ObjectNotCallable",
+                        std::format("Object `{}` isn't callable",
+                                    fnObj->toString().toBasicString()),
+                        callee);
+                }
+                const Function &fn = fnObj->as<Function>();
+                size_t fnId = fn.id;
+                const auto &fnNameOpt = ctx->getFunctionName(fnId);
+                const FString &fnName = (fnNameOpt ? *fnNameOpt : u8"<anonymous>");
+                return evalFunctionCall(fn, fnCall->arg, fnName, ctx);
+            }
+            case AstType::FunctionLiteralExpr: {
+                auto fnLiteral = std::dynamic_pointer_cast<Ast::FunctionLiteralExprAst>(exp);
+                assert(fnLiteral != nullptr);
+
+                Ast::BlockStatement body = nullptr;
+                if (fnLiteral->isExprMode())
+                {
+                    Ast::Expression exprBody = fnLiteral->getExprBody();
+                    assert(exprBody != nullptr);
+
+                    const Ast::AstAddressInfo &aai = exprBody->getAAI();
+                    Ast::Return st = std::make_shared<Ast::ReturnSt>(exprBody);
+                    st->setAAI(aai);
+
+                    body = std::make_shared<Ast::BlockStatementAst>();
+                    body->stmts.push_back(st); // convert to Ast::Statement
+                    body->setAAI(aai);
+                }
+                else
+                {
+                    body = fnLiteral->getBlockBody();
+                    assert(body != nullptr);
+                }
+                Function fn(
+                    fnLiteral->paras,
+                    ValueType::Any,
+                    body,
+                    ctx
+                    /*
+                        pass the ctx(fnLiteral eval context) as closure context
+                    */
+                );
+                return std::make_shared<Object>(std::move(fn));
+            }
+            case AstType::InitExpr: {
+                auto initExpr = std::dynamic_pointer_cast<Ast::InitExprAst>(exp);
+                if (!ctx->contains(initExpr->structName))
+                {
+                    throw EvaluatorError(
+                        u8"StructNotFoundError",
+                        std::format(
+                            "Structure type '{}' not found",
+                            initExpr->structName.toBasicString()),
+                        initExpr);
+                }
+                ObjectPtr structTypeVal = ctx->get(initExpr->structName)->value;
+                if (!structTypeVal->is<StructType>())
+                {
+                    throw EvaluatorError(
+                        u8"NotAStructTypeError",
+                        std::format(
+                            "'{}' is not a structure type",
+                            initExpr->structName.toBasicString()),
+                        initExpr);
+                }
+                const StructType &structT = structTypeVal->as<StructType>();
+                ContextPtr defContext = structT.defContext; // definition context
+                // check init args
+
+                size_t minArgs = 0;
+                size_t maxArgs = structT.fields.size();
+
+                for (auto &f : structT.fields)
+                {
+                    if (f.defaultValue == nullptr) minArgs++;
+                }
+
+                size_t got = initExpr->args.size();
+                if (got > maxArgs || got < minArgs)
+                {
+                    throw EvaluatorError(
+                        u8"StructInitArgumentMismatchError",
+                        std::format(
+                            "Structure '{}' expects {} to {} fields, but {} were provided",
+                            initExpr->structName.toBasicString(),
+                            minArgs,
+                            maxArgs,
+                            initExpr->args.size()),
+                        initExpr);
+                }
+
+                std::vector<std::pair<FString, ObjectPtr>> evaluatedArgs;
+                for (const auto &[argName, argExpr] : initExpr->args)
+                {
+                    evaluatedArgs.push_back({argName, eval(argExpr, ctx)});
+                }
+                ContextPtr instanceCtx = std::make_shared<Context>(
+                    FString(std::format("<StructInstance {}>", initExpr->structName.toBasicString())),
+                    ctx);
+                /*
+                    3 ways of calling constructor
+                    .1 Person {"Fig", 1, "IDK"};
+                    .2 Person {name: "Fig", age: 1, sex: "IDK"}; // can be unordered
+                    .3 Person {name, age, sex};
+                */
+                {
+                    using enum Ast::InitExprAst::InitMode;
+                    if (initExpr->initMode == Positional)
+                    {
+                        for (size_t i = 0; i < maxArgs; ++i)
+                        {
+                            const Field &field = structT.fields[i];
+                            const FString &fieldName = field.name;
+                            const TypeInfo &expectedType = field.type;
+                            if (i >= evaluatedArgs.size())
+                            {
+                                // we've checked argument count before, so here must be a default value
+
+                                // evaluate default value in definition context
+                                ObjectPtr defaultVal = eval(field.defaultValue, ctx); // it can't be null here
+
+                                // type check
+                                if (expectedType != defaultVal->getTypeInfo() && expectedType != ValueType::Any)
+                                {
+                                    throw EvaluatorError(
+                                        u8"StructFieldTypeMismatchError",
+                                        std::format(
+                                            "In structure '{}', field '{}' expects type '{}', but got type '{}'",
+                                            initExpr->structName.toBasicString(),
+                                            fieldName.toBasicString(),
+                                            expectedType.toString().toBasicString(),
+                                            defaultVal->getTypeInfo().toString().toBasicString()),
+                                        initExpr);
+                                }
+
+                                instanceCtx->def(fieldName, expectedType, field.am, defaultVal);
+                                continue;
+                            }
+
+                            const ObjectPtr &argVal = evaluatedArgs[i].second;
+                            if (expectedType != argVal->getTypeInfo() && expectedType != ValueType::Any)
+                            {
+                                throw EvaluatorError(
+                                    u8"StructFieldTypeMismatchError",
+                                    std::format("In structure '{}', field '{}' expects type '{}', but got type '{}'",
+                                                initExpr->structName.toBasicString(),
+                                                fieldName.toBasicString(),
+                                                expectedType.toString().toBasicString(),
+                                                argVal->getTypeInfo().toString().toBasicString()),
+                                    initExpr);
+                            }
+                            instanceCtx->def(fieldName, expectedType, field.am, argVal);
+                        }
+                    }
+                    else
+                    {
+                        // named / shorthand init
+                        for (size_t i = 0; i < maxArgs; ++i)
+                        {
+                            const Field &field = structT.fields[i];
+                            const FString &fieldName = (field.name.empty() ? evaluatedArgs[i].first : field.name);
+                            if (instanceCtx->containsInThisScope(fieldName))
+                            {
+                                throw EvaluatorError(
+                                    u8"StructFieldRedeclarationError",
+                                    std::format(
+                                        "Field '{}' already initialized in structure '{}'",
+                                        fieldName.toBasicString(),
+                                        initExpr->structName.toBasicString()),
+                                    initExpr);
+                            }
+                            if (i + 1 > got)
+                            {
+                                // use default value                  // evaluate default value in definition context
+                                ObjectPtr defaultVal = eval(field.defaultValue, defContext); // it can't be null here
+
+                                // type check
+                                const TypeInfo &expectedType = field.type;
+                                if (expectedType != defaultVal->getTypeInfo() && expectedType != ValueType::Any)
+                                {
+                                    throw EvaluatorError(
+                                        u8"StructFieldTypeMismatchError",
+                                        std::format(
+                                            "In structure '{}', field '{}' expects type '{}', but got type '{}'",
+                                            initExpr->structName.toBasicString(),
+                                            fieldName.toBasicString(),
+                                            expectedType.toString().toBasicString(),
+                                            defaultVal->getTypeInfo().toString().toBasicString()),
+                                        initExpr);
+                                }
+
+                                instanceCtx->def(fieldName, field.type, field.am, defaultVal);
+                                continue;
+                            }
+                            const ObjectPtr &argVal = evaluatedArgs[i].second;
+                            if (field.type != argVal->getTypeInfo() && field.type != ValueType::Any)
+                            {
+                                throw EvaluatorError(
+                                    u8"StructFieldTypeMismatchError",
+                                    std::format(
+                                        "In structure '{}', field '{}' expects type '{}', but got type '{}'",
+                                        initExpr->structName.toBasicString(),
+                                        fieldName.toBasicString(),
+                                        field.type.toString().toBasicString(),
+                                        argVal->getTypeInfo().toString().toBasicString()),
+                                    initExpr);
+                            }
+                            instanceCtx->def(fieldName, field.type, field.am, argVal);
+                        }
+                    }
+                }
+                instanceCtx->merge(*structT.defContext);
+                for (auto &[id, fn] : instanceCtx->getFunctions())
+                {
+                    instanceCtx->_update(*instanceCtx->getFunctionName(id), std::make_shared<Object>(
+                                                                                Function(fn.paras, fn.retType, fn.body, instanceCtx) // change its closureContext to struct instance's context
+                                                                                ));
+                }
+                return std::make_shared<Object>(StructInstance(structT.id, instanceCtx));
+            }
+
+            default:
+                assert(false);
+        }
+    }
+    StatementResult Evaluator::evalBlockStatement(Ast::BlockStatement block, ContextPtr ctx)
+    {
+        StatementResult sr = StatementResult::normal();
+        for (const Ast::Statement &stmt : block->stmts)
+        {
+            sr = evalStatement(stmt, ctx);
+            if (!sr.isNormal())
+            {
+                return sr;
+            }
+        }
+        return sr;
+    }
+    StatementResult Evaluator::evalStatement(Ast::Statement stmt, ContextPtr ctx)
+    {
+        using enum Ast::AstType;
+        switch (stmt->getType())
+        {
+            case VarDefSt: {
+                auto varDef = std::dynamic_pointer_cast<Ast::VarDefAst>(stmt);
+                assert(varDef != nullptr);
+
+                if (ctx->containsInThisScope(varDef->name))
+                {
+                    throw EvaluatorError(
+                        u8"RedeclarationError",
+                        std::format("Variable `{}` already declared in this scope",
+                                    varDef->name.toBasicString()),
+                        varDef);
+                }
+
+                RvObject value = nullptr;
+                if (varDef->expr)
+                {
+                    value = eval(varDef->expr, ctx);
+                }
+                TypeInfo declaredType; // default is Any
+                const FString &declaredTypeName = varDef->typeName;
+                if (declaredTypeName == Parser::varDefTypeFollowed)
+                {
+                    declaredType = value->getTypeInfo();
+                }
+                else if (!declaredTypeName.empty())
+                {
+                    declaredType = TypeInfo(declaredTypeName);
+                    if (value != nullptr && value->getTypeInfo() != declaredType && declaredType != ValueType::Any)
+                    {
+                        throw EvaluatorError(
+                            u8"TypeError",
+                            std::format(
+                                "Variable `{}` expects init-value type `{}`, but got '{}'",
+                                varDef->name.toBasicString(),
+                                declaredTypeName.toBasicString(),
+                                value->getTypeInfo().toString().toBasicString()),
+                            varDef->expr);
+                    }
+                    else if (value == nullptr)
+                    {
+                        value = std::make_shared<Object>(
+                            Object::defaultValue(declaredType));
+                    } // else -> Ok
+                } // else -> type is Any (default)
+                AccessModifier am = (varDef->isConst ? (
+                                                           varDef->isPublic ? AccessModifier::PublicConst :
+                                                                              AccessModifier::Const) :
+                                                       (
+                                                           varDef->isPublic ? AccessModifier::Public :
+                                                                              AccessModifier::Normal));
+                ctx->def(
+                    varDef->name,
+                    declaredType,
+                    am,
+                    value);
+                return StatementResult::normal();
+            }
+
+            case FunctionDefSt: {
+                auto fnDef = std::dynamic_pointer_cast<Ast::FunctionDefSt>(stmt);
+                assert(fnDef != nullptr);
+
+                const FString &fnName = fnDef->name;
+                if (ctx->containsInThisScope(fnName))
+                {
+                    throw EvaluatorError(
+                        u8"RedeclarationError",
+                        std::format("Function `{}` already declared in this scope",
+                                    fnName.toBasicString()),
+                        fnDef);
+                }
+                Function fn(
+                    fnDef->paras,
+                    TypeInfo(fnDef->retType),
+                    fnDef->body,
+                    ctx);
+                ctx->def(
+                    fnName,
+                    ValueType::Function,
+                    (fnDef->isPublic ? AccessModifier::PublicConst : AccessModifier::Const),
+                    std::make_shared<Object>(fn));
+                return StatementResult::normal();
+            }
+
+            case StructSt: {
+                auto stDef = std::dynamic_pointer_cast<Ast::StructDefSt>(stmt);
+                assert(stDef != nullptr);
+
+                if (ctx->containsInThisScope(stDef->name))
+                {
+                    throw EvaluatorError(
+                        u8"RedeclarationError",
+                        std::format("Structure '{}' already defined in this scope", stDef->name.toBasicString()),
+                        stDef);
+                }
+                std::vector<Field> fields;
+                std::vector<FString> _fieldNames;
+                for (Ast::StructDefField field : stDef->fields)
+                {
+                    if (Utils::vectorContains(field.fieldName, _fieldNames))
+                    {
+                        throw EvaluatorError(
+                            u8"RedeclarationError",
+                            std::format("Field '{}' already defined in structure '{}'",
+                                        field.fieldName.toBasicString(), stDef->name.toBasicString()),
+                            stDef);
+                    }
+                    fields.push_back(Field(field.am, field.fieldName, TypeInfo(field.tiName), field.defaultValueExpr));
+                }
+                ContextPtr defContext = std::make_shared<Context>(FString(std::format("<Struct {} at {}:{}>",
+                                                                                      stDef->name.toBasicString(),
+                                                                                      stDef->getAAI().line,
+                                                                                      stDef->getAAI().column)),
+                                                                  ctx);
+                const Ast::BlockStatement &body = stDef->body;
+                for (auto &st : body->stmts)
+                {
+                    if (st->getType() != Ast::AstType::FunctionDefSt)
+                    {
+                        throw EvaluatorError(u8"UnexpectedStatementInStructError",
+                                             std::format("Unexpected statement `{}` in struct declaration",
+                                                         st->toString().toBasicString()),
+                                             st);
+                    }
+                    evalStatement(st, defContext); // function def st
+                }
+
+                AccessModifier am = (stDef->isPublic ? AccessModifier::PublicConst : AccessModifier::Const);
+                TypeInfo _(stDef->name, true); // register type name
+                ctx->def(
+                    stDef->name,
+                    ValueType::StructType,
+                    am,
+                    std::make_shared<Object>(StructType(
+                        defContext,
+                        fields)));
+                return StatementResult::normal();
+            }
+
+            case IfSt: {
+                auto ifSt = std::dynamic_pointer_cast<Ast::IfSt>(stmt);
+                ObjectPtr condVal = eval(ifSt->condition, ctx);
+                if (condVal->getTypeInfo() != ValueType::Bool)
+                {
+                    throw EvaluatorError(
+                        u8"TypeError",
+                        std::format(
+                            "Condition must be boolean, but got '{}'",
+                            condVal->getTypeInfo().toString().toBasicString()),
+                        ifSt->condition);
+                }
+                if (condVal->as<ValueType::BoolClass>())
+                {
+                    return evalBlockStatement(ifSt->body, ctx);
+                }
+                // else
+                for (const auto &elif : ifSt->elifs)
+                {
+                    ObjectPtr elifCondVal = eval(elif->condition, ctx);
+                    throw EvaluatorError(
+                        u8"TypeError",
+                        std::format(
+                            "Condition must be boolean, but got '{}'",
+                            condVal->getTypeInfo().toString().toBasicString()),
+                        ifSt->condition);
+                    if (elifCondVal->as<ValueType::BoolClass>())
+                    {
+                        return evalBlockStatement(elif->body, ctx);
+                    }
+                }
+                if (ifSt->els)
+                {
+                    return evalBlockStatement(ifSt->els->body, ctx);
+                }
+                return StatementResult::normal();
+            };
+            case WhileSt: {
+                auto whileSt = std::dynamic_pointer_cast<Ast::WhileSt>(stmt);
+                while (true)
+                {
+                    ObjectPtr condVal = eval(whileSt->condition, ctx);
+                    if (condVal->getTypeInfo() != ValueType::Bool)
+                    {
+                        throw EvaluatorError(
+                            u8"TypeError",
+                            std::format(
+                                "Condition must be boolean, but got '{}'",
+                                condVal->getTypeInfo().toString().toBasicString()),
+                            whileSt->condition);
+                    }
+                    if (!condVal->as<ValueType::BoolClass>())
+                    {
+                        break;
+                    }
+                    ContextPtr loopContext = std::make_shared<Context>(
+                        FString(std::format("<While {}:{}>",
+                                            whileSt->getAAI().line, whileSt->getAAI().column)),
+                        ctx); // every loop has its own context
+                    StatementResult sr = evalBlockStatement(whileSt->body, loopContext);
+                    if (sr.shouldReturn())
+                    {
+                        return sr;
+                    }
+                    if (sr.shouldBreak())
+                    {
+                        break;
+                    }
+                    if (sr.shouldContinue())
+                    {
+                        continue;
+                    }
+                }
+                return StatementResult::normal();
+            };
+            case ForSt: {
+                auto forSt = std::dynamic_pointer_cast<Ast::ForSt>(stmt);
+                ContextPtr loopContext = std::make_shared<Context>(
+                    FString(std::format("<For {}:{}>",
+                                        forSt->getAAI().line, forSt->getAAI().column)),
+                    ctx); // for loop has its own context
+
+                evalStatement(forSt->initSt, loopContext); // ignore init statement result
+                size_t iteration = 0;
+
+                while (true) // use while loop to simulate for loop, cause we need to check condition type every iteration
+                {
+                    ObjectPtr condVal = eval(forSt->condition, ctx);
+                    if (condVal->getTypeInfo() != ValueType::Bool)
+                    {
+                        throw EvaluatorError(
+                            u8"TypeError",
+                            std::format(
+                                "Condition must be boolean, but got '{}'",
+                                condVal->getTypeInfo().toString().toBasicString()),
+                            forSt->condition);
+                    }
+                    if (!condVal->as<ValueType::BoolClass>())
+                    {
+                        break;
+                    }
+                    iteration++;
+                    ContextPtr iterationContext = std::make_shared<Context>(
+                        FString(std::format("<For {}:{}, Iteration {}>",
+                                            forSt->getAAI().line, forSt->getAAI().column, iteration)),
+                        loopContext); // every loop has its own context
+                    StatementResult sr = evalBlockStatement(forSt->body, iterationContext);
+                    if (sr.shouldReturn())
+                    {
+                        return sr;
+                    }
+                    if (sr.shouldBreak())
+                    {
+                        break;
+                    }
+                    if (sr.shouldContinue())
+                    {
+                        // continue to next iteration
+                        continue;
+                    }
+                    evalStatement(forSt->incrementSt, loopContext); // ignore increment statement result
+                }
+                return StatementResult::normal();
+            }
+            case ReturnSt: {
+                auto returnSt = std::dynamic_pointer_cast<Ast::ReturnSt>(stmt);
+                assert(returnSt != nullptr);
+
+                ObjectPtr returnValue = Object::getNullInstance(); // default is null
+                if (returnSt->retValue)
+                    returnValue = eval(returnSt->retValue, ctx);
+                return StatementResult::returnFlow(returnValue);
+            }
+
+            case BreakSt: {
+                if (!ctx->parent)
+                {
+                    throw EvaluatorError(
+                        u8"BreakOutsideLoopError",
+                        u8"`break` statement outside loop",
+                        stmt);
+                }
+                if (!ctx->isInLoopContext())
+                {
+                    throw EvaluatorError(
+                        u8"BreakOutsideLoopError",
+                        u8"`break` statement outside loop",
+                        stmt);
+                }
+                return StatementResult::breakFlow();
+            }
+
+            case ContinueSt: {
+                if (!ctx->parent)
+                {
+                    throw EvaluatorError(
+                        u8"ContinueOutsideLoopError",
+                        u8"`continue` statement outside loop",
+                        stmt);
+                }
+                if (!ctx->isInLoopContext())
+                {
+                    throw EvaluatorError(
+                        u8"ContinueOutsideLoopError",
+                        u8"`continue` statement outside loop",
+                        stmt);
+                }
+                return StatementResult::continueFlow();
+            }
+
+            case ExpressionStmt: {
+                auto exprStmt = std::dynamic_pointer_cast<Ast::ExpressionStmtAst>(stmt);
+                assert(exprStmt != nullptr);
+
+                return StatementResult::normal(eval(exprStmt->exp, ctx));
+            }
+
+            default:
+                throw RuntimeError(FStringView(
+                    std::format("Feature stmt {} unsupported yet",
+                                magic_enum::enum_name(stmt->getType()))));
+        }
+    }
+    StatementResult Evaluator::Run(std::vector<Ast::AstBase> asts)
+    {
+        using Ast::AstType;
+        StatementResult sr = StatementResult::normal();
+        for (auto &ast : asts)
+        {
+            Ast::Expression exp;
+            if ((exp = std::dynamic_pointer_cast<Ast::ExpressionAst>(ast)))
+            {
+                sr = StatementResult::normal(eval(exp, global));
+            }
+            else
+            {
+                // statement
+                Ast::Statement stmt = std::dynamic_pointer_cast<Ast::StatementAst>(ast);
+                assert(stmt != nullptr);
+                sr = evalStatement(stmt, global);
+                if (!sr.isNormal())
+                {
+                    return sr;
+                }
+            }
+        }
+        return sr;
+    }
+
+    void Evaluator::printStackTrace()
+    {
+        if (global)
+            global->printStackTrace();
+    }
+}; // namespace Fig

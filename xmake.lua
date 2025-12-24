@@ -13,10 +13,15 @@ target("Fig")
     add_cxxflags("-static")
     add_cxxflags("-stdlib=libc++")
 
-    add_files("src/*.cpp")
+    add_files("src/main.cpp")
+    add_files("src/Core/warning.cpp")
+    add_files("src/Evaluator/evaluator.cpp")
+    add_files("src/Lexer/lexer.cpp")
+    add_files("src/Parser/parser.cpp")
+    add_files("src/Value/value.cpp")
     
-    add_includedirs("include")
-    
+    add_includedirs("src")
+
     set_warnings("all")
 
     add_defines("__FCORE_COMPILE_TIME=\"" .. os.date("%Y-%m-%d %H:%M:%S") .. "\"")

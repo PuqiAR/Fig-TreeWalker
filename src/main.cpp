@@ -27,16 +27,16 @@ Copyright (C) 2020-2025 PuqiAR
 This software is licensed under the MIT License. See LICENSE.txt for details.
 */
 
-#include <argparse/argparse.hpp>
+#include <Utils/argparse/argparse.hpp>
 #include <print>
 #include <fstream>
 
-#include <core.hpp>
-#include <lexer.hpp>
-#include <parser.hpp>
-#include <evaluator.hpp>
-#include <AstPrinter.hpp>
-#include <errorLog.hpp>
+#include <Core/core.hpp>
+#include <Lexer/lexer.hpp>
+#include <Parser/parser.hpp>
+#include <Evaluator/evaluator.hpp>
+#include <Utils/AstPrinter.hpp>
+#include <Error/errorLog.hpp>
 
 static size_t addressableErrorCount = 0;
 static size_t unaddressableErrorCount = 0;
@@ -117,13 +117,13 @@ int main(int argc, char **argv)
     // }
 
     Fig::Parser parser(lexer);
-    std::vector<Fig::Ast::AstBase> ast;
+    std::vector<Fig::Ast::AstBase> asts;
 
     std::vector<FString> sourceLines = splitSource(Fig::FString(source));
 
     try
     {
-        ast = parser.parseAll();
+        asts = parser.parseAll();
     }
     catch (const Fig::AddressableError &e)
     {
@@ -150,10 +150,12 @@ int main(int argc, char **argv)
     //     printer.print(node);
     // }
 
-    Fig::Evaluator evaluator(ast);
+    Fig::Evaluator evaluator;
+    evaluator.CreateGlobalContext();
+    evaluator.RegisterBuiltins();
     try
     {
-        evaluator.run();
+        evaluator.Run(asts);
     }
     catch (const Fig::AddressableError &e)
     {

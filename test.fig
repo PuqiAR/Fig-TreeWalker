@@ -1,14 +1,15 @@
-struct test
+struct Person
 {
-    bar:String = "1233";
-    func foo()
+    name: String;
+
+    func getName() -> String
     {
-        __fstdout_println(bar);
+        return name;
     }
 }
 
-var x := test{};
-x.foo();
+var person := Person{"PuqiAR"};
 
-x.bar = "555";
-x.foo();
+const print := __fstdout_println;
+
+print(person.getName());

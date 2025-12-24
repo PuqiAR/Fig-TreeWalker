@@ -1,0 +1,42 @@
+#pragma once
+
+#include <Error/error.hpp>
+#include <Ast/astBase.hpp>
+
+namespace Fig
+{
+    class EvaluatorError final : public AddressableError
+    {
+    public:
+        FString typeName;
+        using AddressableError::AddressableError;
+        EvaluatorError(FString _typeName, FString msg, Ast::AstBase ast, std::source_location loc = std::source_location::current())
+        {
+            message = FStringView::fromBasicStringView(msg.toBasicString());
+            line = ast->getAAI().line;
+            column = ast->getAAI().column;
+
+            src_loc = std::move(loc);
+
+            typeName = std::move(_typeName);
+
+        }
+        EvaluatorError(FString _typeName, std::string_view msg, Ast::AstBase ast, std::source_location loc = std::source_location::current())
+        {
+            message = FStringView::fromBasicStringView(msg);
+            line = ast->getAAI().line;
+            column = ast->getAAI().column;
+
+            src_loc = std::move(loc);
+
+            typeName = std::move(_typeName);
+        }
+
+        virtual FString getErrorType() const override
+        {
+            return typeName;
+        }
+
+
+    };
+};
