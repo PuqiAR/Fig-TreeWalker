@@ -8,6 +8,6 @@ build/
 .vscode
 .VSCodeCounter
 
-test.fig
+/test.fig
 
 docs/node_modules
