@@ -8,10 +8,10 @@ target("Fig")
     set_languages("c++2b") 
     
     set_plat("mingw")
-    --set_toolchains("clang")
 
     add_cxxflags("-static")
     add_cxxflags("-stdlib=libc++")
+    add_ldflags("-Wl,--stack,268435456")
 
     add_files("src/main.cpp")
     add_files("src/Core/warning.cpp")
