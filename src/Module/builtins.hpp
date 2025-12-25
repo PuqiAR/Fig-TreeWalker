@@ -36,24 +36,16 @@ namespace Fig
 
         const std::unordered_map<FString, BuiltinFunction> builtinFunctions{
             {u8"__fstdout_print", [](const std::vector<ObjectPtr> &args) -> ObjectPtr {
-                 bool first_flag = true;
                  for (auto arg : args)
                  {
-                     if (!first_flag)
-                         std::print(" ");
                      std::print("{}", arg->toStringIO().toBasicString());
-                     first_flag = false;
                  }
                  return std::make_shared<Object>(ValueType::IntClass(args.size()));
              }},
             {u8"__fstdout_println", [](const std::vector<ObjectPtr> &args) -> ObjectPtr {
-                 bool first_flag = true;
                  for (auto arg : args)
                  {
-                     if (!first_flag)
-                         std::print(" ");
                      std::print("{}", arg->toStringIO().toBasicString());
-                     first_flag = false;
                  }
                  std::print("\n");
                  return std::make_shared<Object>(ValueType::IntClass(args.size()));
