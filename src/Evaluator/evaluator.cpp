@@ -971,7 +971,7 @@ namespace Fig
 
                 while (true) // use while loop to simulate for loop, cause we need to check condition type every iteration
                 {
-                    ObjectPtr condVal = eval(forSt->condition, ctx);
+                    ObjectPtr condVal = eval(forSt->condition, loopContext);
                     if (condVal->getTypeInfo() != ValueType::Bool)
                     {
                         throw EvaluatorError(
