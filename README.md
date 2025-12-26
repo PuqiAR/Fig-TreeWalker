@@ -19,6 +19,40 @@
 - **Comprehensive error handling** - Detailed error messages with source locations
 - **Clean C++ implementation** - Modern C++23 with RAII and smart pointers
 
+### 🔧 Install
+# Installation
+
+## Prerequisites
+**Xmake** version **3.0.0 or higher** must be installed on your system.
+
+## Build Instructions
+
+1. Clone the repository:
+
+```bash
+git clone https://github.com/PuqiAR/Fig.git
+```
+
+2. Navigate to the project directory:
+
+```bash
+cd Fig
+```
+
+3. Build the project:
+
+```bash
+xmake build Fig
+```
+
+4. Run the program:
+
+```bash
+xmake run Fig [file]
+```
+
+Replace `[file]` with the path to your input file.
+
 ### 📁 Project Structure
 .
 ├── ExampleCodes                # Example programs & performance tests

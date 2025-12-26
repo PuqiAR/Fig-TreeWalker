@@ -19,6 +19,34 @@
 - **全面的错误处理** - 带有源码位置的详细错误信息
 - **干净的 C++ 实现** - 现代 C++23，使用 RAII 和智能指针
 
+### 使用教程
+1. 克隆存储库：
+
+```bash
+git clone https://github.com/PuqiAR/Fig.git
+```
+
+2. 切换到项目目录：
+
+```bash
+cd Fig
+```
+
+3. 构建项目：
+
+```bash
+xmake build Fig
+```
+
+4. 运行程序：
+
+
+
+```bash
+xmake run Fig [file]
+```
+将`[file]`替换为输入文件的路径。
+
 ### 📁 项目结构
 .
 ├── ExampleCodes                # 示例代码与性能测试样例
