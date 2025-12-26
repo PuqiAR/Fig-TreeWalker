@@ -1,22 +1,15 @@
 /*
 Official Module `std.io`
-Library/std/io/io.fig
+Library/std/io/noSpaces.fig
 */
 
 import _builtins;
-import noSpace; // sub module `no space print`
-
-// outputs
 
 public func print(objects...) -> Int
 {
     var length := objects.length();
     for var i:=0; i < length; i += 1
     {
-        if i > 0
-        {
-            __fstdout_print(" ");
-        }
         __fstdout_print(objects[i]);
     }
     return length;
@@ -27,24 +20,8 @@ public func println(objects...) -> Int
     var length := objects.length();
     for var i:=0; i < length; i += 1
     {
-        if i > 0
-        {
-            __fstdout_print(" ");
-        }
         __fstdout_print(objects[i]);
     }
     __fstdout_print("\n");
     return length + 1;
-}
-
-// inputs
-
-public func read() -> String
-{
-    return __fstdin_read();
-}
-
-public func readln() -> String
-{
-    return __fstdin_readln();
 }

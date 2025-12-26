@@ -1338,17 +1338,8 @@ namespace Fig
             nullptr);
 
         evaluator.SetGlobalContext(modctx);
-        evaluator.RegisterBuiltins();
-
-        try
-        {
-            evaluator.Run(asts);
-        }
-        catch (std::exception &e)
-        {
-            std::cerr << "load module failed" << '\n';
-            throw e;
-        }
+        evaluator.RegisterBuiltinsValue();
+        evaluator.Run(asts);
 
         return evaluator.global;
     }
@@ -1356,10 +1347,15 @@ namespace Fig
     StatementResult Evaluator::evalImportSt(Ast::Import i, ContextPtr ctx)
     {
         const std::vector<FString> &pathVec = i->path;
+
+        const FString &modName = pathVec.at(pathVec.size() - 1); // pathVec at least has 1 element
+        if (modName == u8"_builtins")
+        {
+            RegisterBuiltins();
+            return StatementResult::normal();
+        }
         auto path = resolveModulePath(pathVec);
         ContextPtr modCtx = loadModule(path);
-
-        const FString &modName = pathVec.at(pathVec.size() - 1);
 
         // std::cerr << modName.toBasicString() << '\n'; DEBUG
 

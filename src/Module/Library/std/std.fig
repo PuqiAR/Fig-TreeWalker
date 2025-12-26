@@ -3,4 +3,5 @@ Official Module `std`
 Library/std/std.fig
 */
 
-import io; // link std io
+import io; // link std.io
+import value; // link std.type

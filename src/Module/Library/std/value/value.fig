@@ -1,0 +1,53 @@
+/*
+Official Module `std.value`
+Library/std/value/value.fig
+*/
+
+import _builtins;
+
+public func type(object: Any) -> String
+{
+    return __fvalue_type(object);
+}
+
+public func int_parse(number: String) -> Int
+{
+    return __fvalue_int_parse(number);
+}
+
+public func int_from(number: Any) -> Any
+{
+    var ntype := type(number);
+    if ntype == "Double" or ntype == "Bool"
+    {
+        return __fvalue_int_from(number);
+    }
+    if ntype == "Int"
+    {
+        return number;
+    }
+    return null;
+}
+
+public func double_parse(number: String) -> Double
+{
+    return __fvalue_double_parse(number);
+}
+
+public func double_from(number: Any) -> Any
+{
+    if ntype == "Int" or ntype == "Bool"
+    {
+        return __fvalue_double_from(number);
+    }
+    if ntype == "Double"
+    {
+        return number;
+    }
+    return null;
+}
+
+public func string_from(obj: Any) -> String
+{
+    return __fvalue_string_from(obj);
+}

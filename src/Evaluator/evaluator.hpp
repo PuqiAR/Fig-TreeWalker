@@ -72,7 +72,7 @@ namespace Fig
                 FString(u8"<Global>"));
         }
 
-        void RegisterBuiltins()
+        void RegisterBuiltins() // only function
         {
             assert(global != nullptr);
 
@@ -87,6 +87,11 @@ namespace Fig
                     std::make_shared<Object>(f)
                 );
             }
+        }
+
+        void RegisterBuiltinsValue()
+        {
+            assert(global != nullptr);
 
             for (auto &[name, val] : Builtins::builtinValues)
             {
@@ -94,8 +99,7 @@ namespace Fig
                     name,
                     val->getTypeInfo(),
                     AccessModifier::Const,
-                    val
-                );
+                    val);
             }
         }
         /* Left-value eval*/

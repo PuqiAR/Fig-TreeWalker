@@ -130,7 +130,7 @@ int main(int argc, char **argv)
 
     evaluator.SetSourcePath(sourcePath);
     evaluator.CreateGlobalContext();
-    evaluator.RegisterBuiltins();
+    evaluator.RegisterBuiltinsValue(); 
 
     try
     {
