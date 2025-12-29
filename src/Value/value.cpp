@@ -58,12 +58,12 @@ namespace Fig
                     return r;
                 };
                 const StructType &st = value->as<StructType>();
-                return std::hash<std::size_t>{}(st.id) + HashFields(st.fields);
+                return std::hash<TypeInfo>{}(st.type) + HashFields(st.fields);
             }
             if (type == ValueType::StructInstance)
             {
                 const StructInstance &si = value->as<StructInstance>();
-                return std::hash<std::size_t>{}(si.parentId) + std::hash<uint64_t>{}(reinterpret_cast<uint64_t>(std::addressof(*si.localContext)));
+                return std::hash<TypeInfo>{}(si.parentType) + std::hash<uint64_t>{}(reinterpret_cast<uint64_t>(std::addressof(*si.localContext)));
             }
             assert(false);
         }

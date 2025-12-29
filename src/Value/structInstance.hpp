@@ -1,17 +1,18 @@
 #pragma once
 
 #include <Context/context_forward.hpp>
+#include <Value/Type.hpp>
 
 namespace Fig
 {
     struct StructInstance
     {
-        size_t parentId;
+        TypeInfo parentType;
         ContextPtr localContext;
 
         // ===== Constructors =====
-        StructInstance(size_t _parentId, ContextPtr _localContext) :
-            parentId(_parentId), localContext(std::move(_localContext)) {}
+        StructInstance(TypeInfo _parentType, ContextPtr _localContext) :
+            parentType(_parentType), localContext(std::move(_localContext)) {}
 
         StructInstance(const StructInstance &other) = default;
         StructInstance(StructInstance &&) noexcept = default;
@@ -21,7 +22,7 @@ namespace Fig
         // ===== Comparison =====
         bool operator==(const StructInstance &other) const noexcept
         {
-            return parentId == other.parentId && localContext == other.localContext;
+            return parentType == other.parentType && localContext == other.localContext;
         }
         bool operator!=(const StructInstance &other) const noexcept
         {

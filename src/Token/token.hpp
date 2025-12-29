@@ -18,14 +18,14 @@ namespace Fig
         Identifier,
 
         /* Keywords */
-        Package,   // package
-        And,       // and
-        Or,        // or
-        Not,       // not
-        Import,    // import
-        Function,  // func
-        Variable,  // var
-        Const,     // const
+        Package,  // package
+        And,      // and
+        Or,       // or
+        Not,      // not
+        Import,   // import
+        Function, // func
+        Variable, // var
+        Const,    // const
         // Final,     // final
         While,     // while
         For,       // for
@@ -33,7 +33,8 @@ namespace Fig
         Else,      // else
         Struct,    // struct
         Interface, // interface
-        Implement, // implement
+        Implement, // impl
+        Is,        // is
         Public,    // public
         Return,    // return
         Break,     // break
@@ -64,7 +65,7 @@ namespace Fig
         ShiftLeft,  // <<
         ShiftRight, // >>
         // Exclamation,      // !
-        Question,         // ?
+        Question,    // ?
         Assign,      // =
         Less,        // <
         Greater,     // >
@@ -87,8 +88,8 @@ namespace Fig
         LeftBrace,    // {
         RightBrace,   // }
         // LeftArrow,        // <-
-        RightArrow,       // ->
-        DoubleArrow,      // =>
+        RightArrow,      // ->
+        DoubleArrow,     // =>
         Equal,           // ==
         NotEqual,        // !=
         LessEqual,       // <=
@@ -106,7 +107,7 @@ namespace Fig
         Walrus,          // :=
         Power,           // **
 
-        TripleDot,       // ... for variadic parameter
+        TripleDot, // ... for variadic parameter
     };
 
     class Token final

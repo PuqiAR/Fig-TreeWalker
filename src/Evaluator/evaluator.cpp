@@ -11,6 +11,20 @@
 
 namespace Fig
 {
+    bool Evaluator::isTypeMatch(const TypeInfo &expected, ObjectPtr obj)
+    {
+        if (expected == ValueType::Any)
+            return true;
+
+        TypeInfo actual = obj->getTypeInfo();
+
+        if (actual != ValueType::StructInstance)
+            return expected == actual;
+
+        const StructInstance &si = obj->as<StructInstance>();
+        return si.parentType == expected;
+    }
+
     LvObject Evaluator::evalVarExpr(Ast::VarExpr var, ContextPtr ctx)
     {
         const FString &name = var->name;
@@ -300,8 +314,7 @@ namespace Fig
                 LvObject lv = evalLv(lexp, ctx);
                 ObjectPtr rhs = eval(rexp, ctx);
                 lv.set(std::make_shared<Object>(
-                    *(lv.get()) + *rhs
-                ));
+                    *(lv.get()) + *rhs));
                 return rhs;
             }
             case Operator::MinusAssign: {
@@ -437,7 +450,7 @@ namespace Fig
             TypeInfo expectedType(fnParas.posParas[i].second); // look up type info, if exists a type with the name, use it, else throw
             ObjectPtr argVal = eval(fnArgs.argv[i], ctx);
             TypeInfo actualType = argVal->getTypeInfo();
-            if (expectedType != actualType and expectedType != ValueType::Any)
+            if (!isTypeMatch(expectedType, argVal))
             {
                 throw EvaluatorError(
                     u8"ArgumentTypeMismatchError",
@@ -457,7 +470,7 @@ namespace Fig
             TypeInfo expectedType = fnParas.defParas[defParamIndex].second.first;
 
             ObjectPtr defaultVal = eval(fnParas.defParas[defParamIndex].second.second, ctx);
-            if (expectedType != defaultVal->getTypeInfo() and expectedType != ValueType::Any)
+            if (!isTypeMatch(expectedType, defaultVal))
             {
                 throw EvaluatorError(
                     u8"DefaultParameterTypeError",
@@ -471,7 +484,7 @@ namespace Fig
 
             ObjectPtr argVal = eval(fnArgs.argv[i], ctx);
             TypeInfo actualType = argVal->getTypeInfo();
-            if (expectedType != actualType and expectedType != ValueType::Any)
+            if (!isTypeMatch(expectedType, argVal))
             {
                 throw EvaluatorError(
                     u8"ArgumentTypeMismatchError",
@@ -540,7 +553,7 @@ namespace Fig
                 break;
             }
         }
-        if (fnStruct.retType != retVal->getTypeInfo() and fnStruct.retType != ValueType::Any)
+        if (!isTypeMatch(fnStruct.retType, retVal))
         {
             throw EvaluatorError(
                 u8"ReturnTypeMismatchError",
@@ -728,7 +741,7 @@ namespace Fig
                                 ObjectPtr defaultVal = eval(field.defaultValue, ctx); // it can't be null here
 
                                 // type check
-                                if (expectedType != defaultVal->getTypeInfo() && expectedType != ValueType::Any)
+                                if (!isTypeMatch(expectedType, defaultVal))
                                 {
                                     throw EvaluatorError(
                                         u8"StructFieldTypeMismatchError",
@@ -746,7 +759,7 @@ namespace Fig
                             }
 
                             const ObjectPtr &argVal = evaluatedArgs[i].second;
-                            if (expectedType != argVal->getTypeInfo() && expectedType != ValueType::Any)
+                            if (!isTypeMatch(expectedType, argVal))
                             {
                                 throw EvaluatorError(
                                     u8"StructFieldTypeMismatchError",
@@ -784,7 +797,7 @@ namespace Fig
 
                                 // type check
                                 const TypeInfo &expectedType = field.type;
-                                if (expectedType != defaultVal->getTypeInfo() && expectedType != ValueType::Any)
+                                if (!isTypeMatch(expectedType, defaultVal))
                                 {
                                     throw EvaluatorError(
                                         u8"StructFieldTypeMismatchError",
@@ -801,7 +814,7 @@ namespace Fig
                                 continue;
                             }
                             const ObjectPtr &argVal = evaluatedArgs[i].second;
-                            if (field.type != argVal->getTypeInfo() && field.type != ValueType::Any)
+                            if (!isTypeMatch(field.type, argVal))
                             {
                                 throw EvaluatorError(
                                     u8"StructFieldTypeMismatchError",
@@ -824,7 +837,7 @@ namespace Fig
                                                                                 Function(fn.paras, fn.retType, fn.body, instanceCtx) // change its closureContext to struct instance's context
                                                                                 ));
                 }
-                return std::make_shared<Object>(StructInstance(structT.id, instanceCtx));
+                return std::make_shared<Object>(StructInstance(structT.type, instanceCtx));
             }
 
             case AstType::ListExpr: {
@@ -905,7 +918,7 @@ namespace Fig
                 else if (!declaredTypeName.empty())
                 {
                     declaredType = TypeInfo(declaredTypeName);
-                    if (value != nullptr && value->getTypeInfo() != declaredType && declaredType != ValueType::Any)
+                    if (value != nullptr && !isTypeMatch(declaredType, value))
                     {
                         throw EvaluatorError(
                             u8"TypeError",
@@ -1006,12 +1019,13 @@ namespace Fig
                 }
 
                 AccessModifier am = (stDef->isPublic ? AccessModifier::PublicConst : AccessModifier::Const);
-                TypeInfo _(stDef->name, true); // register type name
+                TypeInfo type(stDef->name, true); // register type name
                 ctx->def(
                     stDef->name,
                     ValueType::StructType,
                     am,
                     std::make_shared<Object>(StructType(
+                        type,
                         defContext,
                         fields)));
                 return StatementResult::normal();

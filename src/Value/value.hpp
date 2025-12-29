@@ -400,11 +400,11 @@ namespace Fig
                                            static_cast<const void *>(&as<Function>())));
             if (is<StructType>())
                 return FString(std::format("<StructType {} at {:p}>",
-                                           as<StructType>().id,
+                                           as<StructType>().type.toString().toBasicString(),
                                            static_cast<const void *>(&as<StructType>())));
             if (is<StructInstance>())
                 return FString(std::format("<StructInstance '{}' at {:p}>",
-                                           as<StructInstance>().parentId,
+                                           as<StructInstance>().parentType.toString().toBasicString(),
                                            static_cast<const void *>(&as<StructInstance>())));
             if (is<List>())
             {

@@ -20,7 +20,7 @@ namespace Fig
 
         std::unordered_map<std::size_t, Function> functions;
         std::unordered_map<std::size_t, FString> functionNames;
-        std::unordered_map<std::size_t, FString> structTypeNames;
+        // std::unordered_map<std::size_t, FString> structTypeNames;
 
     public:
         ContextPtr parent;
@@ -49,7 +49,7 @@ namespace Fig
             variables.insert(c.variables.begin(), c.variables.end());
             functions.insert(c.functions.begin(), c.functions.end());
             functionNames.insert(c.functionNames.begin(), c.functionNames.end());
-            structTypeNames.insert(c.structTypeNames.begin(), c.structTypeNames.end());
+            // structTypeNames.insert(c.structTypeNames.begin(), c.structTypeNames.end());
         }
 
         std::unordered_map<size_t, Function> getFunctions() const
@@ -142,11 +142,11 @@ namespace Fig
                 functions[fn.id] = fn;
                 functionNames[fn.id] = name;
             }
-            if (ti == ValueType::StructType)
-            {
-                auto &st = value->as<StructType>();
-                structTypeNames[st.id] = name;
-            }
+            // if (ti == ValueType::StructType)
+            // {
+            //     auto &st = value->as<StructType>();
+            //     structTypeNames[st.id] = name;
+            // }
         }
         std::optional<Function> getFunction(std::size_t id)
         {
@@ -180,22 +180,22 @@ namespace Fig
                 return std::nullopt;
             }
         }
-        std::optional<FString> getStructName(std::size_t id)
-        {
-            auto it = structTypeNames.find(id);
-            if (it != structTypeNames.end())
-            {
-                return it->second;
-            }
-            else if (parent)
-            {
-                return parent->getStructName(id);
-            }
-            else
-            {
-                return std::nullopt;
-            }
-        }
+        // std::optional<FString> getStructName(std::size_t id)
+        // {
+        //     auto it = structTypeNames.find(id);
+        //     if (it != structTypeNames.end())
+        //     {
+        //         return it->second;
+        //     }
+        //     else if (parent)
+        //     {
+        //         return parent->getStructName(id);
+        //     }
+        //     else
+        //     {
+        //         return std::nullopt;
+        //     }
+        // }
         bool contains(const FString &name)
         {
             if (variables.contains(name))

@@ -77,3 +77,16 @@ namespace Fig
         using StringClass = FString;
     }; // namespace ValueType
 }; // namespace Fig
+
+
+namespace std
+{
+    template <>
+    struct hash<Fig::TypeInfo>
+    {
+        size_t operator()(const Fig::TypeInfo &t)
+        {
+            return std::hash<size_t>{}(t.getInstanceID());
+        }
+    };
+};

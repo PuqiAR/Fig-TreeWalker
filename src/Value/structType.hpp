@@ -33,13 +33,13 @@ namespace Fig
 
     struct StructType
     {
-        std::size_t id;
+        TypeInfo type;
         ContextPtr defContext; // 定义时的上下文
         std::vector<Field> fields;
 
         // ===== Constructors =====
-        StructType(ContextPtr _defContext, std::vector<Field> _fields) :
-            id(nextId()), defContext(std::move(_defContext)), fields(std::move(_fields)) {}
+        StructType(TypeInfo _type, ContextPtr _defContext, std::vector<Field> _fields) :
+            type(std::move(_type)), defContext(std::move(_defContext)), fields(std::move(_fields)) {}
 
         StructType(const StructType &other) = default;
         StructType(StructType &&) noexcept = default;
@@ -49,7 +49,7 @@ namespace Fig
         // ===== Comparison =====
         bool operator==(const StructType &other) const noexcept
         {
-            return id == other.id;
+            return type == other.type;
         }
         bool operator!=(const StructType &other) const noexcept
         {

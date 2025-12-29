@@ -6,7 +6,6 @@
 #include <Value/LvObject.hpp>
 #include <filesystem>
 
-
 namespace Fig
 {
     struct StatementResult
@@ -52,6 +51,7 @@ namespace Fig
     {
     private:
         ContextPtr global;
+
     public:
         FString sourcePath;
 
@@ -84,8 +84,7 @@ namespace Fig
                     name,
                     ValueType::Function,
                     AccessModifier::Const,
-                    std::make_shared<Object>(f)
-                );
+                    std::make_shared<Object>(f));
             }
         }
 
@@ -102,24 +101,27 @@ namespace Fig
                     val);
             }
         }
+
+        bool isTypeMatch(const TypeInfo &, ObjectPtr);
+
         /* Left-value eval*/
         LvObject evalVarExpr(Ast::VarExpr, ContextPtr);
         LvObject evalMemberExpr(Ast::MemberExpr, ContextPtr); // a.b
-        LvObject evalIndexExpr(Ast::IndexExpr, ContextPtr); // a[b]
+        LvObject evalIndexExpr(Ast::IndexExpr, ContextPtr);   // a[b]
 
         LvObject evalLv(Ast::Expression, ContextPtr); // for access: a.b / index a[b]
 
         /* Right-value eval*/
-        
-        RvObject evalBinary(Ast::BinaryExpr, ContextPtr); // normal binary expr: +, -, *....
-        RvObject evalUnary(Ast::UnaryExpr, ContextPtr); // unary expr
+
+        RvObject evalBinary(Ast::BinaryExpr, ContextPtr);   // normal binary expr: +, -, *....
+        RvObject evalUnary(Ast::UnaryExpr, ContextPtr);     // unary expr
         RvObject evalTernary(Ast::TernaryExpr, ContextPtr); // ternary expr
 
-        RvObject evalFunctionCall(const Function&, const Ast::FunctionArguments&, const FString& ,ContextPtr);    // function call
+        RvObject evalFunctionCall(const Function &, const Ast::FunctionArguments &, const FString &, ContextPtr); // function call
         RvObject eval(Ast::Expression, ContextPtr);
-        
+
         StatementResult evalBlockStatement(Ast::BlockStatement, ContextPtr); // block
-        StatementResult evalStatement(Ast::Statement, ContextPtr);  // statement
+        StatementResult evalStatement(Ast::Statement, ContextPtr);           // statement
 
         std::filesystem::path resolveModulePath(const std::vector<FString> &);
         ContextPtr loadModule(const std::filesystem::path &);
