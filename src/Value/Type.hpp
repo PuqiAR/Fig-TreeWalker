@@ -43,7 +43,7 @@ namespace Fig
             return id == other.id;
         }
     };
-
+    
     class TypeInfoHash
     {
     public:

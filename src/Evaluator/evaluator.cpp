@@ -107,7 +107,7 @@ namespace Fig
                     u8"TypeError",
                     std::format(
                         "Type `List` indices must be `Int`, got '{}'",
-                        index->getTypeInfo().toString().toBasicString()),
+                        prettyType(index).toBasicString()),
                     ie->index);
             }
             List &list = base.get()->as<List>();
@@ -142,7 +142,7 @@ namespace Fig
                     u8"TypeError",
                     std::format(
                         "Type `String` indices must be `Int`, got '{}'",
-                        index->getTypeInfo().toString().toBasicString()),
+                        prettyType(index).toBasicString()),
                     ie->index);
             }
             FString &string = base.get()->as<ValueType::StringClass>();
@@ -390,7 +390,7 @@ namespace Fig
             throw EvaluatorError(
                 u8"TypeError",
                 std::format("Condition must be boolean, got '{}'",
-                            condVal->getTypeInfo().toString().toBasicString()),
+                            prettyType(condVal).toBasicString()),
                 te->condition);
         }
         ValueType::BoolClass cond = condVal->as<ValueType::BoolClass>();
@@ -477,7 +477,7 @@ namespace Fig
                     std::format("In function '{}', default parameter '{}' has type '{}', which does not match the expected type '{}'",
                                 fnName.toBasicString(),
                                 fnParas.defParas[defParamIndex].first.toBasicString(),
-                                defaultVal->getTypeInfo().toString().toBasicString(),
+                                prettyType(defaultVal).toBasicString(),
                                 expectedType.toString().toBasicString()),
                     fnArgs.argv[i]);
             }
@@ -560,7 +560,7 @@ namespace Fig
                 std::format("Function '{}' expects return type '{}', but got type '{}'",
                             fnName.toBasicString(),
                             fnStruct.retType.toString().toBasicString(),
-                            retVal->getTypeInfo().toString().toBasicString()),
+                            prettyType(retVal).toBasicString()),
                 fnStruct.body);
         }
         return retVal;
@@ -750,7 +750,7 @@ namespace Fig
                                             initExpr->structName.toBasicString(),
                                             fieldName.toBasicString(),
                                             expectedType.toString().toBasicString(),
-                                            defaultVal->getTypeInfo().toString().toBasicString()),
+                                            prettyType(defaultVal).toBasicString()),
                                         initExpr);
                                 }
 
@@ -767,7 +767,7 @@ namespace Fig
                                                 initExpr->structName.toBasicString(),
                                                 fieldName.toBasicString(),
                                                 expectedType.toString().toBasicString(),
-                                                argVal->getTypeInfo().toString().toBasicString()),
+                                                prettyType(argVal).toBasicString()),
                                     initExpr);
                             }
                             instanceCtx->def(fieldName, expectedType, field.am, argVal);
@@ -806,7 +806,7 @@ namespace Fig
                                             initExpr->structName.toBasicString(),
                                             fieldName.toBasicString(),
                                             expectedType.toString().toBasicString(),
-                                            defaultVal->getTypeInfo().toString().toBasicString()),
+                                            prettyType(defaultVal).toBasicString()),
                                         initExpr);
                                 }
 
@@ -823,7 +823,7 @@ namespace Fig
                                         initExpr->structName.toBasicString(),
                                         fieldName.toBasicString(),
                                         field.type.toString().toBasicString(),
-                                        argVal->getTypeInfo().toString().toBasicString()),
+                                        prettyType(argVal).toBasicString()),
                                     initExpr);
                             }
                             instanceCtx->def(fieldName, field.type, field.am, argVal);
@@ -926,7 +926,7 @@ namespace Fig
                                 "Variable `{}` expects init-value type `{}`, but got '{}'",
                                 varDef->name.toBasicString(),
                                 declaredTypeName.toBasicString(),
-                                value->getTypeInfo().toString().toBasicString()),
+                                prettyType(value).toBasicString()),
                             varDef->expr);
                     }
                     else if (value == nullptr)
@@ -1040,7 +1040,7 @@ namespace Fig
                         u8"TypeError",
                         std::format(
                             "Condition must be boolean, but got '{}'",
-                            condVal->getTypeInfo().toString().toBasicString()),
+                            prettyType(condVal).toBasicString()),
                         ifSt->condition);
                 }
                 if (condVal->as<ValueType::BoolClass>())
@@ -1057,7 +1057,7 @@ namespace Fig
                             u8"TypeError",
                             std::format(
                                 "Condition must be boolean, but got '{}'",
-                                condVal->getTypeInfo().toString().toBasicString()),
+                                prettyType(condVal).toBasicString()),
                             ifSt->condition);
                     }
                     if (elifCondVal->as<ValueType::BoolClass>())
@@ -1082,7 +1082,7 @@ namespace Fig
                             u8"TypeError",
                             std::format(
                                 "Condition must be boolean, but got '{}'",
-                                condVal->getTypeInfo().toString().toBasicString()),
+                                prettyType(condVal).toBasicString()),
                             whileSt->condition);
                     }
                     if (!condVal->as<ValueType::BoolClass>())
@@ -1128,7 +1128,7 @@ namespace Fig
                             u8"TypeError",
                             std::format(
                                 "Condition must be boolean, but got '{}'",
-                                condVal->getTypeInfo().toString().toBasicString()),
+                                prettyType(condVal).toBasicString()),
                             forSt->condition);
                     }
                     if (!condVal->as<ValueType::BoolClass>())

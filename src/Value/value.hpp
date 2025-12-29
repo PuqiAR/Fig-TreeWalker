@@ -33,6 +33,8 @@ namespace Fig
     using ObjectPtr = std::shared_ptr<Object>;
     using List = std::vector<ObjectPtr>;
 
+    FString prettyType(ObjectPtr obj);
+
     struct ValueKey
     {
         ObjectPtr value;

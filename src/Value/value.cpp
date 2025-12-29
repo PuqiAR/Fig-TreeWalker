@@ -69,6 +69,14 @@ namespace Fig
         }
     }
 
+    FString prettyType(ObjectPtr obj)
+    {
+        auto t = obj->getTypeInfo();
+        if (t == ValueType::StructInstance)
+            return obj->as<StructInstance>().parentType.toString();
+        return t.toString();
+    }
+
     const TypeInfo ValueType::Any(FString(u8"Any"), true);           // id: 1
     const TypeInfo ValueType::Null(FString(u8"Null"), true);         // id: 2
     const TypeInfo ValueType::Int(FString(u8"Int"), true);           // id: 3
