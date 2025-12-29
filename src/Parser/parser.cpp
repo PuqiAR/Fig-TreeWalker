@@ -160,7 +160,7 @@ namespace Fig
             }
             expect(TokenType::Identifier, FString(u8"Identifier or `)`")); // check current
             FString pname = currentToken().getValue();
-            next();                                    // skip pname
+            next();                        // skip pname
             if (isThis(TokenType::Assign)) // =
             {
                 next();
@@ -202,8 +202,7 @@ namespace Fig
                     throw SyntaxError(
                         u8"Expects right paren, variable parameter function can only have one parameter",
                         currentAAI.line,
-                        currentAAI.column
-                    );
+                        currentAAI.column);
                 next(); // skip `)`
                 return Ast::FunctionParameters(variaPara);
             }
@@ -495,7 +494,17 @@ namespace Fig
             {
                 // else if
                 next(); // consume `if`
-                Ast::Expression elifCondition = parseExpression(0);
+                Ast::Expression elifCondition;
+                if (isThis(TokenType::LeftParen))
+                {
+                    elifCondition = parseExpression(0, TokenType::RightParen);
+                    expect(TokenType::RightParen);
+                    next(); // consume `)`
+                }
+                else 
+                {
+                    elifCondition = parseExpression(0);
+                }
                 expect(TokenType::LeftBrace); // {
                 Ast::BlockStatement elifBody = __parseBlockStatement();
                 elifs.push_back(makeAst<Ast::ElseIfSt>(elifCondition, elifBody));
@@ -514,7 +523,18 @@ namespace Fig
     {
         // entry: current is `while`
         next(); // consume `while`
-        Ast::Expression condition = parseExpression(0);
+        Ast::Expression condition;
+        if (isThis(TokenType::LeftParen))
+        {
+            next(); // consume `(`
+            condition = parseExpression(0, TokenType::RightParen);
+            expect(TokenType::RightParen);
+            next(); // consume `)`
+        }
+        else
+        {
+            condition = parseExpression(0);
+        }
         expect(TokenType::LeftBrace); // {
         Ast::BlockStatement body = __parseBlockStatement();
         return makeAst<Ast::WhileSt>(condition, body);
