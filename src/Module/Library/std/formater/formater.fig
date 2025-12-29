@@ -1,6 +1,8 @@
 /*
     Official Module `std.formater`
     Library/std/formater/formater.fig
+
+    Copyright © 2025 PuqiAR. All rights reserved.
 */
 
 import std.value; // `type` function and string_from

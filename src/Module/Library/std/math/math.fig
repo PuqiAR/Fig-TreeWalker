@@ -1,6 +1,8 @@
 /*
     Official Module `math`
     Library/math/math.fig
+    
+    Copyright © 2025 PuqiAR. All rights reserved.
 */
 
 import _builtins; // load __fmath functions

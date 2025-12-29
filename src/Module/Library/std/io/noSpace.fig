@@ -1,6 +1,8 @@
 /*
     Official Module `std.io`
     Library/std/io/noSpaces.fig
+
+    Copyright © 2025 PuqiAR. All rights reserved.
 */
 
 import _builtins;
