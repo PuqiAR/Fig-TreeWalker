@@ -6,6 +6,7 @@
 #include <Error/error.hpp>
 
 #include <print>
+#include <source_location>
 #include <unordered_map>
 
 #include <stack>
@@ -211,43 +212,43 @@ namespace Fig
             return ptr;
         }
 
-        void expectPeek(TokenType type)
+        void expectPeek(TokenType type, std::source_location loc = std::source_location::current())
         {
             if (peekToken().getType() != type)
             {
                 throwAddressableError<SyntaxError>(FString(std::format("Expected `{}`, but got `{}`",
                                                                            magic_enum::enum_name(type),
-                                                                           magic_enum::enum_name(peekToken().getType()))));
+                                                                           magic_enum::enum_name(peekToken().getType()))), loc);
             }
         }
 
-        void expect(TokenType type)
+        void expect(TokenType type, std::source_location loc = std::source_location::current())
         {
             if (currentToken().getType() != type)
             {
                 throwAddressableError<SyntaxError>(FString(std::format("Expected `{}`, but got `{}`",
                                                                            magic_enum::enum_name(type),
-                                                                           magic_enum::enum_name(currentToken().getType()))));
+                                                                           magic_enum::enum_name(currentToken().getType()))), loc);
             }
         }
 
-        void expectPeek(TokenType type, FString expected)
+        void expectPeek(TokenType type, FString expected, std::source_location loc = std::source_location::current())
         {
             if (peekToken().getType() != type)
             {
                 throwAddressableError<SyntaxError>(FString(std::format("Expected `{}`, but got `{}`",
                                                                            expected.toBasicString(),
-                                                                           magic_enum::enum_name(peekToken().getType()))));
+                                                                           magic_enum::enum_name(peekToken().getType()))), loc);
             }
         }
 
-        void expect(TokenType type, FString expected)
+        void expect(TokenType type, FString expected, std::source_location loc = std::source_location::current())
         {
             if (currentToken().getType() != type)
             {
                 throwAddressableError<SyntaxError>(FString(std::format("Expected `{}`, but got `{}`",
                                                                            expected.toBasicString(),
-                                                                           magic_enum::enum_name(currentToken().getType()))));
+                                                                           magic_enum::enum_name(currentToken().getType()))), loc);
             }
         }
 
@@ -315,6 +316,9 @@ namespace Fig
         Ast::StructDef __parseStructDef(bool);     // entry: current is Token::Identifier (struct name) arg(isPublic: bool)
         Ast::InterfaceDef __parseInterfaceDef(bool); // entry: current is Token::Identifier (interface name) arg(isPublic: bool)
         Ast::Implement __parseImplement();         // entry: current is `impl`
+
+        Ast::Throw __parseThrow();                 // entry: current is `throw`
+        Ast::Try __parseTry();                     // entry: current is `try`
 
         Ast::BinaryExpr __parseInfix(Ast::Expression, Ast::Operator, Precedence);
         Ast::UnaryExpr __parsePrefix(Ast::Operator, Precedence);

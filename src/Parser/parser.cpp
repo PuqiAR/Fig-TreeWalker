@@ -1,3 +1,4 @@
+#include "Ast/Statements/ErrorFlow.hpp"
 #include "Ast/Statements/ImplementSt.hpp"
 #include "Ast/astBase.hpp"
 #include "Ast/functionParameters.hpp"
@@ -30,6 +31,7 @@ namespace Fig
         {Ast::Operator::LessEqual, {8, 9}},
         {Ast::Operator::Greater, {8, 9}},
         {Ast::Operator::GreaterEqual, {8, 9}},
+        {Ast::Operator::Is, {8, 9}},
 
         // 位运算
         {Ast::Operator::BitAnd, {6, 7}},
@@ -478,6 +480,89 @@ namespace Fig
         return makeAst<Ast::ImplementAst>(interfaceName, structName, methods);
     }
 
+    Ast::Throw Parser::__parseThrow()
+    {
+        // entry: current is `throw`
+        next(); // consume `throw`
+        Ast::Expression exp = parseExpression(0);
+        expect(TokenType::Semicolon);
+        next(); // consume `;`
+        return makeAst<Ast::ThrowSt>(exp);
+    }
+
+    Ast::Try Parser::__parseTry()
+    {
+        // entry: current is `try`
+        next(); // consume `try`
+        
+        /*
+        try
+        {
+            ...        
+        }
+        catch(e: IOError)
+        {
+        }
+        catch(e: TimeOutError)
+        {
+        } 
+        */
+        expect(TokenType::LeftBrace);
+        Ast::BlockStatement body = __parseBlockStatement();
+        std::vector<Ast::Catch> catches;
+        Ast::BlockStatement finallyBlock = nullptr;
+        while (true)
+        {
+            if (isThis(TokenType::Catch))
+            {
+                next(); // consume `catch`
+                expect(TokenType::LeftParen);
+                next(); // consume `(`
+                expect(TokenType::Identifier, u8"error receive var name");
+                FString errVarName = currentToken().getValue();
+                next(); // consume name
+
+                bool hasType = false;
+                FString errVarType;
+                if (isThis(TokenType::Colon)) // :
+                {
+                    next();
+                    expect(TokenType::Identifier, u8"error type");
+                    errVarType = currentToken().getValue();
+                    next(); // consume var type
+                    hasType = true;
+                }
+                expect(TokenType::RightParen); // ）
+                next(); // consume `)`
+                expect(TokenType::LeftBrace); // {
+                Ast::BlockStatement catchBody = __parseBlockStatement();
+
+                if (hasType)
+                {
+                    catches.push_back(Ast::Catch(errVarName, errVarType, catchBody));
+                }
+                else {
+                    catches.push_back(Ast::Catch(errVarName, catchBody));
+                }
+            }
+            else if (isThis(TokenType::Finally))
+            {
+                if (finallyBlock != nullptr)
+                {
+                    throw SyntaxError(u8"Duplicate try finally-block", currentAAI.line, currentAAI.column);
+                }
+                next(); // consume `finally`
+                expect(TokenType::LeftBrace);
+                finallyBlock = __parseBlockStatement();
+            }
+            else 
+            {
+                break;
+            }
+        }
+        return makeAst<Ast::TrySt>(body, catches, finallyBlock);
+    }
+
     Ast::Statement Parser::__parseStatement()
     {
         Ast::Statement stmt;
@@ -567,6 +652,14 @@ namespace Fig
         else if (isThis(TokenType::Continue))
         {
             stmt = __parseContinue();
+        }
+        else if (isThis(TokenType::Throw))
+        {
+            stmt = __parseThrow();
+        }
+        else if (isThis(TokenType::Try))
+        {
+            stmt = __parseTry();
         }
         else
         {

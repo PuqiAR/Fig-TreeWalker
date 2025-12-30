@@ -60,6 +60,9 @@ namespace Fig::Ast
 
         PackageSt,
         ImportSt,
+
+        TrySt,
+        ThrowSt,
     };
 
     // static const std::unordered_map<AstType, FString> astTypeToString{
@@ -210,6 +213,7 @@ namespace Fig::Ast
         LessEqual,    // <=
         Greater,      // >
         GreaterEqual, // >=
+        Is,           // a is b
 
         // 三目
         TernaryCond,
@@ -254,6 +258,7 @@ namespace Fig::Ast
         Operator::LessEqual,
         Operator::Greater,
         Operator::GreaterEqual,
+        Operator::Is,
 
         Operator::BitAnd,
         Operator::BitOr,
@@ -297,6 +302,7 @@ namespace Fig::Ast
         {TokenType::LessEqual, Operator::LessEqual},
         {TokenType::Greater, Operator::Greater},
         {TokenType::GreaterEqual, Operator::GreaterEqual},
+        {TokenType::Is, Operator::Is},
 
         // 三目
         {TokenType::Question, Operator::TernaryCond},

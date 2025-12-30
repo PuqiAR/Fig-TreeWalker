@@ -19,7 +19,8 @@ namespace Fig
             Normal,
             Return,
             Break,
-            Continue
+            Continue,
+            Error
         } flow;
 
         StatementResult(ObjectPtr val, Flow f = Flow::Normal) :
@@ -43,11 +44,16 @@ namespace Fig
         {
             return StatementResult(Object::getNullInstance(), Flow::Continue);
         }
+        static StatementResult errorFlow(ObjectPtr val)
+        {
+            return StatementResult(val, Flow::Error);
+        }
 
         bool isNormal() const { return flow == Flow::Normal; }
         bool shouldReturn() const { return flow == Flow::Return; }
         bool shouldBreak() const { return flow == Flow::Break; }
         bool shouldContinue() const { return flow == Flow::Continue; }
+        bool isError() const { return flow == Flow::Error; }
     };
 
     class Evaluator

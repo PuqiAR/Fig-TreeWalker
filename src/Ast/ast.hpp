@@ -15,6 +15,8 @@
 #include <Ast/Expressions/ValueExpr.hpp>
 #include <Ast/Expressions/VarExpr.hpp>
 
+#include <Ast/Statements/ControlSt.hpp>
+#include <Ast/Statements/ErrorFlow.hpp>
 #include <Ast/Statements/VarDef.hpp>
 #include <Ast/Statements/WhileSt.hpp>
 #include <Ast/Statements/StructDefSt.hpp>
@@ -23,6 +25,5 @@
 #include <Ast/Statements/ImportSt.hpp>
 #include <Ast/Statements/InterfaceDefSt.hpp>
 #include <Ast/Statements/FunctionDefSt.hpp>
-#include <Ast/Statements/ControlSt.hpp>
 #include <Ast/Statements/ExpressionStmt.hpp>
 #include <Ast/Statements/ForSt.hpp>

@@ -39,6 +39,10 @@ namespace Fig
         Return,    // return
         Break,     // break
         Continue,  // continue
+        Try,       // try
+        Catch,     // catch
+        Throw,     // throw
+        Finally,   // finally
 
         // TypeNull,   // Null
         // TypeInt,    // Int

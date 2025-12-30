@@ -57,7 +57,7 @@
       "patterns": [
         {
           "name": "keyword.control.fig",
-          "match": "\\b(and|or|not|import|func|var|const|final|while|for|if|else|struct|interface|implement|public|return|break|continue)\\b"
+          "match": "\\b(and|or|not|import|func|var|const|final|while|for|if|else|struct|interface|impl|public|return|break|continue|try|catch|throw)\\b"
         },
         { "name": "constant.language.fig", "match": "\\b(true|false|null)\\b" }
       ]
@@ -78,7 +78,7 @@
         },
         {
           "name": "keyword.operator.comparison.fig",
-          "match": "(==|!=|<=|>=|<|>)"
+          "match": "(==|!=|<=|>=|<|>|is)"
         },
         {
           "name": "punctuation.separator.fig",

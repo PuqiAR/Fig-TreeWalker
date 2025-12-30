@@ -81,7 +81,10 @@ namespace Fig
         {FString(u8"return"), TokenType::Return},
         {FString(u8"break"), TokenType::Break},
         {FString(u8"continue"), TokenType::Continue},
-
+        {FString(u8"try"), TokenType::Try},
+        {FString(u8"catch"), TokenType::Catch},
+        {FString(u8"throw"), TokenType::Throw},
+        {FString(u8"Finally"), TokenType::Finally},
 
         // {FString(u8"Null"), TokenType::TypeNull},
         // {FString(u8"Int"), TokenType::TypeInt},
