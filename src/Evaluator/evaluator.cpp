@@ -1,3 +1,14 @@
+#include "Value/VariableSlot.hpp"
+#include "Value/value.hpp"
+#include <Ast/AccessModifier.hpp>
+#include <Ast/Statements/ImplementSt.hpp>
+#include <Ast/Statements/InterfaceDefSt.hpp>
+#include <Ast/astBase.hpp>
+#include <Context/context_forward.hpp>
+#include <Error/error.hpp>
+#include <Value/Type.hpp>
+#include <Value/interface.hpp>
+#include <Value/structInstance.hpp>
 #include <Error/errorLog.hpp>
 #include <Evaluator/evaluator.hpp>
 #include <Evaluator/evaluator_error.hpp>
@@ -8,21 +19,14 @@
 
 #include <filesystem>
 #include <fstream>
+#include <memory>
 
 namespace Fig
 {
-    bool Evaluator::isTypeMatch(const TypeInfo &expected, ObjectPtr obj)
+
+    bool Evaluator::isInterfaceSignatureMatch(const Ast::ImplementMethod &implMethod, const Ast::InterfaceMethod &ifMethod)
     {
-        if (expected == ValueType::Any)
-            return true;
-
-        TypeInfo actual = obj->getTypeInfo();
-
-        if (actual != ValueType::StructInstance)
-            return expected == actual;
-
-        const StructInstance &si = obj->as<StructInstance>();
-        return si.parentType == expected;
+        return implMethod.name == ifMethod.name && implMethod.paras == ifMethod.paras;
     }
 
     LvObject Evaluator::evalVarExpr(Ast::VarExpr var, ContextPtr ctx)
@@ -32,7 +36,7 @@ namespace Fig
         {
             throw EvaluatorError(u8"UndeclaredIdentifierError", name, var);
         }
-        return LvObject(ctx->get(name));
+        return LvObject(ctx->get(name), ctx);
     }
     LvObject Evaluator::evalMemberExpr(Ast::MemberExpr me, ContextPtr ctx)
     {
@@ -45,7 +49,8 @@ namespace Fig
             if (mod.ctx->contains(member) && mod.ctx->isVariablePublic(member))
             {
                 return LvObject(
-                    mod.ctx->get(member));
+                    mod.ctx->get(member),
+                    ctx);
             }
             else
             {
@@ -61,13 +66,14 @@ namespace Fig
         if (baseVal->hasMemberFunction(member))
         {
             return LvObject(std::make_shared<VariableSlot>(
-                member,
-                std::make_shared<Object>(
-                    Function(
-                        baseVal->getMemberFunction(member),
-                        baseVal->getMemberFunctionParaCount(member))),
-                ValueType::Function,
-                AccessModifier::PublicConst)); // fake l-value
+                                member,
+                                std::make_shared<Object>(
+                                    Function(
+                                        baseVal->getMemberFunction(member),
+                                        baseVal->getMemberFunctionParaCount(member))),
+                                ValueType::Function,
+                                AccessModifier::PublicConst),
+                            ctx); // fake l-value
         }
         if (baseVal->getTypeInfo() != ValueType::StructInstance) // and not member function found
         {
@@ -80,17 +86,40 @@ namespace Fig
                 me->base);
         }
         const StructInstance &si = baseVal->as<StructInstance>();
-        if (!si.localContext->containsInThisScope(member) || !si.localContext->isVariablePublic(member))
+        if (ctx->hasMethodImplemented(si.parentType, member))
+        {
+            return LvObject(std::make_shared<VariableSlot>(
+                                member,
+                                std::make_shared<Object>(
+                                    ctx->getImplementedMethod(si.parentType, member)),
+                                ValueType::Function,
+                                AccessModifier::PublicConst),
+                            ctx);
+        }
+        else if (si.localContext->containsInThisScope(member) && si.localContext->isVariablePublic(member))
+        {
+            return LvObject(si.localContext->get(member), ctx);
+        }
+        else if (ctx->hasDefaultImplementedMethod(si.parentType, member))
+        {
+            return LvObject(std::make_shared<VariableSlot>(
+                                member,
+                                std::make_shared<Object>(
+                                    ctx->getDefaultImplementedMethod(si.parentType, member)),
+                                ValueType::Function,
+                                AccessModifier::PublicConst),
+                            ctx);
+        }
+        else
         {
             throw EvaluatorError(
                 u8"NoAttributeError",
                 std::format(
-                    "`{}` has not attribute '{}'",
+                    "`{}` has not attribute '{}' and no interfaces have been implemented it",
                     baseVal->toString().toBasicString(),
                     member.toBasicString()),
                 me->base);
         }
-        return LvObject(si.localContext->get(member));
     }
     LvObject Evaluator::evalIndexExpr(Ast::IndexExpr ie, ContextPtr ctx)
     {
@@ -125,14 +154,16 @@ namespace Fig
             return LvObject(
                 base.get(),
                 indexVal,
-                LvObject::Kind::ListElement);
+                LvObject::Kind::ListElement,
+                ctx);
         }
         else if (type == ValueType::Map)
         {
             return LvObject(
                 base.get(),
                 index,
-                LvObject::Kind::MapElement);
+                LvObject::Kind::MapElement,
+                ctx);
         }
         else if (type == ValueType::String)
         {
@@ -160,7 +191,8 @@ namespace Fig
             return LvObject(
                 base.get(),
                 indexVal,
-                LvObject::Kind::StringElement);
+                LvObject::Kind::StringElement,
+                ctx);
         }
         else
         {
@@ -450,7 +482,7 @@ namespace Fig
             TypeInfo expectedType(fnParas.posParas[i].second); // look up type info, if exists a type with the name, use it, else throw
             ObjectPtr argVal = eval(fnArgs.argv[i], ctx);
             TypeInfo actualType = argVal->getTypeInfo();
-            if (!isTypeMatch(expectedType, argVal))
+            if (!isTypeMatch(expectedType, argVal, ctx))
             {
                 throw EvaluatorError(
                     u8"ArgumentTypeMismatchError",
@@ -467,10 +499,10 @@ namespace Fig
         for (; i < fnArgs.getLength(); i++)
         {
             size_t defParamIndex = i - fnParas.posParas.size();
-            TypeInfo expectedType = fnParas.defParas[defParamIndex].second.first;
+            TypeInfo expectedType(fnParas.defParas[defParamIndex].second.first);
 
             ObjectPtr defaultVal = eval(fnParas.defParas[defParamIndex].second.second, ctx);
-            if (!isTypeMatch(expectedType, defaultVal))
+            if (!isTypeMatch(expectedType, defaultVal, ctx))
             {
                 throw EvaluatorError(
                     u8"DefaultParameterTypeError",
@@ -484,7 +516,7 @@ namespace Fig
 
             ObjectPtr argVal = eval(fnArgs.argv[i], ctx);
             TypeInfo actualType = argVal->getTypeInfo();
-            if (!isTypeMatch(expectedType, argVal))
+            if (!isTypeMatch(expectedType, argVal, ctx))
             {
                 throw EvaluatorError(
                     u8"ArgumentTypeMismatchError",
@@ -512,13 +544,13 @@ namespace Fig
             if (j < fnParas.posParas.size())
             {
                 paramName = fnParas.posParas[j].first;
-                paramType = fnParas.posParas[j].second;
+                paramType = TypeInfo(fnParas.posParas[j].second);
             }
             else
             {
                 size_t defParamIndex = j - fnParas.posParas.size();
                 paramName = fnParas.defParas[defParamIndex].first;
-                paramType = fnParas.defParas[defParamIndex].second.first;
+                paramType = TypeInfo(fnParas.defParas[defParamIndex].second.first);
             }
             AccessModifier argAm = AccessModifier::Const;
             newContext->def(paramName, paramType, argAm, evaluatedArgs.argv[j]);
@@ -553,7 +585,7 @@ namespace Fig
                 break;
             }
         }
-        if (!isTypeMatch(fnStruct.retType, retVal))
+        if (!isTypeMatch(fnStruct.retType, retVal, ctx))
         {
             throw EvaluatorError(
                 u8"ReturnTypeMismatchError",
@@ -741,7 +773,7 @@ namespace Fig
                                 ObjectPtr defaultVal = eval(field.defaultValue, ctx); // it can't be null here
 
                                 // type check
-                                if (!isTypeMatch(expectedType, defaultVal))
+                                if (!isTypeMatch(expectedType, defaultVal, ctx))
                                 {
                                     throw EvaluatorError(
                                         u8"StructFieldTypeMismatchError",
@@ -759,7 +791,7 @@ namespace Fig
                             }
 
                             const ObjectPtr &argVal = evaluatedArgs[i].second;
-                            if (!isTypeMatch(expectedType, argVal))
+                            if (!isTypeMatch(expectedType, argVal, ctx))
                             {
                                 throw EvaluatorError(
                                     u8"StructFieldTypeMismatchError",
@@ -797,7 +829,7 @@ namespace Fig
 
                                 // type check
                                 const TypeInfo &expectedType = field.type;
-                                if (!isTypeMatch(expectedType, defaultVal))
+                                if (!isTypeMatch(expectedType, defaultVal, ctx))
                                 {
                                     throw EvaluatorError(
                                         u8"StructFieldTypeMismatchError",
@@ -814,7 +846,7 @@ namespace Fig
                                 continue;
                             }
                             const ObjectPtr &argVal = evaluatedArgs[i].second;
-                            if (!isTypeMatch(field.type, argVal))
+                            if (!isTypeMatch(field.type, argVal, ctx))
                             {
                                 throw EvaluatorError(
                                     u8"StructFieldTypeMismatchError",
@@ -918,7 +950,7 @@ namespace Fig
                 else if (!declaredTypeName.empty())
                 {
                     declaredType = TypeInfo(declaredTypeName);
-                    if (value != nullptr && !isTypeMatch(declaredType, value))
+                    if (value != nullptr && !isTypeMatch(declaredType, value, ctx))
                     {
                         throw EvaluatorError(
                             u8"TypeError",
@@ -1028,6 +1060,194 @@ namespace Fig
                         type,
                         defContext,
                         fields)));
+                return StatementResult::normal();
+            }
+
+            case InterfaceDefSt: {
+                auto ifd = std::dynamic_pointer_cast<Ast::InterfaceDefAst>(stmt);
+                assert(ifd != nullptr);
+
+                const FString &interfaceName = ifd->name;
+
+                if (ctx->containsInThisScope(interfaceName))
+                {
+                    throw EvaluatorError(
+                        u8"RedeclarationError",
+                        std::format("Interface `{}` already declared in this scope",
+                                    interfaceName.toBasicString()),
+                        ifd);
+                }
+                TypeInfo type(interfaceName, true); // register interface
+                ctx->def(
+                    interfaceName,
+                    type,
+                    (ifd->isPublic ? AccessModifier::PublicConst : AccessModifier::Const),
+                    std::make_shared<Object>(InterfaceType(
+                        type,
+                        ifd->methods)));
+                return StatementResult::normal();
+            }
+
+            case ImplementSt: {
+                auto ip = std::dynamic_pointer_cast<Ast::ImplementAst>(stmt);
+                assert(ip != nullptr);
+
+                TypeInfo structType(ip->structName);
+                TypeInfo interfaceType(ip->interfaceName);
+                if (ctx->hasImplRegisted(structType, interfaceType))
+                {
+                    throw EvaluatorError(
+                        u8"DuplicateImplError",
+                        std::format(
+                            "Duplicate implement `{}` for `{}`",
+                            interfaceType.toString().toBasicString(),
+                            structType.toString().toBasicString()),
+                        ip);
+                }
+                if (!ctx->contains(ip->interfaceName))
+                {
+                    throw EvaluatorError(
+                        u8"InterfaceNotFoundError",
+                        std::format("Interface '{}' not found", ip->interfaceName.toBasicString()),
+                        ip);
+                }
+                if (!ctx->contains(ip->structName))
+                {
+                    throw EvaluatorError(
+                        u8"StructNotFoundError",
+                        std::format("Struct '{}' not found", ip->structName.toBasicString()),
+                        ip);
+                }
+                auto interfaceSlot = ctx->get(ip->interfaceName);
+                auto structSlot = ctx->get(ip->structName);
+
+                LvObject interfaceLv(interfaceSlot, ctx);
+                LvObject structLv(structSlot, ctx);
+
+                ObjectPtr interfaceObj = interfaceLv.get();
+                ObjectPtr structTypeObj = structLv.get();
+
+                if (!interfaceObj->is<InterfaceType>())
+                {
+                    throw EvaluatorError(
+                        u8"NotAInterfaceError",
+                        std::format("Variable `{}` is not a interface", ip->interfaceName.toBasicString()),
+                        ip);
+                }
+                if (!structTypeObj->is<StructType>())
+                {
+                    throw EvaluatorError(
+                        u8"NotAStructType",
+                        std::format("Variable `{}` is not a struct type", ip->structName.toBasicString()),
+                        ip);
+                }
+                auto &implementMethods = ip->methods;
+                InterfaceType &interface = interfaceObj->as<InterfaceType>();
+
+                // ===== interface implementation validation =====
+                ImplRecord record{interfaceType, structType, {}};
+
+                std::unordered_map<FString, Ast::InterfaceMethod> ifaceMethods;
+                for (auto &m : interface.methods)
+                {
+                    if (ifaceMethods.contains(m.name))
+                    {
+                        throw EvaluatorError(
+                            u8"InterfaceDuplicateMethodError",
+                            std::format("Interface '{}' has duplicate method '{}'",
+                                        interfaceType.toString().toBasicString(),
+                                        m.name.toBasicString()),
+                            ip);
+                    }
+                    ifaceMethods[m.name] = m;
+                }
+
+                std::unordered_set<FString> implemented;
+
+                for (auto &implMethod : implementMethods)
+                {
+                    const FString &name = implMethod.name;
+
+                    // ---- redundant impl ----
+                    if (!ifaceMethods.contains(name))
+                    {
+                        throw EvaluatorError(
+                            u8"RedundantImplementationError",
+                            std::format("Struct '{}' implements extra method '{}' "
+                                        "which is not required by interface '{}'",
+                                        structType.toString().toBasicString(),
+                                        name.toBasicString(),
+                                        interfaceType.toString().toBasicString()),
+                            ip);
+                    }
+
+                    if (implemented.contains(name))
+                    {
+                        throw EvaluatorError(
+                            u8"DuplicateImplementMethodError",
+                            std::format("Duplicate implement method '{}'",
+                                        name.toBasicString()),
+                            ip);
+                    }
+
+                    auto &ifMethod = ifaceMethods[name];
+
+                    // ---- signature check ----
+                    if (!isInterfaceSignatureMatch(implMethod, ifMethod))
+                    {
+                        throw EvaluatorError(
+                            u8"InterfaceSignatureMismatch",
+                            std::format(
+                                "Interface method '{}({})' signature mismatch with "
+                                "implementation '{}({})'",
+                                ifMethod.name.toBasicString(),
+                                ifMethod.paras.toString().toBasicString(),
+                                implMethod.name.toBasicString(),
+                                implMethod.paras.toString().toBasicString()),
+                            ip);
+                    }
+
+                    if (ctx->hasMethodImplemented(structType, name))
+                    {
+                        throw EvaluatorError(
+                            u8"DuplicateImplementMethodError",
+                            std::format(
+                                "Method '{}' already implemented by another interface "
+                                "for struct '{}'",
+                                name.toBasicString(),
+                                structType.toString().toBasicString()),
+                            ip);
+                    }
+
+                    implemented.insert(name);
+
+                    record.implMethods[name] = Function(
+                        implMethod.paras,
+                        TypeInfo(ifMethod.returnType),
+                        implMethod.body,
+                        ctx);
+                }
+
+                for (auto &m : interface.methods)
+                {
+                    if (implemented.contains(m.name))
+                        continue;
+
+                    if (m.hasDefaultBody())
+                        continue;
+
+                    throw EvaluatorError(
+                        u8"MissingImplementationError",
+                        std::format(
+                            "Struct '{}' does not implement required interface method '{}' "
+                            "and interface '{}' provides no default implementation",
+                            structType.toString().toBasicString(),
+                            m.name.toBasicString(),
+                            interfaceType.toString().toBasicString()),
+                        ip);
+                }
+
+                ctx->setImplRecord(structType, interfaceType, record);
                 return StatementResult::normal();
             }
 

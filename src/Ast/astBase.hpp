@@ -44,6 +44,7 @@ namespace Fig::Ast
         VarDefSt,
         FunctionDefSt,
         StructSt,
+        InterfaceDefSt,
         ImplementSt,
 
         IfSt,

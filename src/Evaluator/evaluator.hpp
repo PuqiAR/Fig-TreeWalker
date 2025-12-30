@@ -1,3 +1,6 @@
+#include "Ast/Statements/ImplementSt.hpp"
+#include "Ast/Statements/InterfaceDefSt.hpp"
+#include "Value/Type.hpp"
 #include <Ast/ast.hpp>
 
 #include <Context/context.hpp>
@@ -102,7 +105,7 @@ namespace Fig
             }
         }
 
-        bool isTypeMatch(const TypeInfo &, ObjectPtr);
+        bool isInterfaceSignatureMatch(const Ast::ImplementMethod &, const Ast::InterfaceMethod &);
 
         /* Left-value eval*/
         LvObject evalVarExpr(Ast::VarExpr, ContextPtr);

@@ -313,6 +313,8 @@ namespace Fig
         Ast::VarExpr __parseVarExpr(FString);
         Ast::FunctionDef __parseFunctionDef(bool); // entry: current is Token::Identifier (isPublic: Bool)
         Ast::StructDef __parseStructDef(bool);     // entry: current is Token::Identifier (struct name) arg(isPublic: bool)
+        Ast::InterfaceDef __parseInterfaceDef(bool); // entry: current is Token::Identifier (interface name) arg(isPublic: bool)
+        Ast::Implement __parseImplement();         // entry: current is `impl`
 
         Ast::BinaryExpr __parseInfix(Ast::Expression, Ast::Operator, Precedence);
         Ast::UnaryExpr __parsePrefix(Ast::Operator, Precedence);

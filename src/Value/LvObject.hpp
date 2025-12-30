@@ -22,18 +22,20 @@ namespace Fig
 
         ObjectPtr mapIndex;
 
-        LvObject(std::shared_ptr<VariableSlot> _slot) :
-            slot(std::move(_slot))
+        ContextPtr ctx;
+
+        LvObject(std::shared_ptr<VariableSlot> _slot, ContextPtr _ctx) :
+            slot(std::move(_slot)), ctx(_ctx)
         {
             kind = Kind::Variable;
         }
-        LvObject(ObjectPtr _v, size_t _index, Kind _kind) :
-            value(_v), numIndex(_index)
+        LvObject(ObjectPtr _v, size_t _index, Kind _kind, ContextPtr _ctx) :
+            value(_v), numIndex(_index), ctx(_ctx)
         {
             kind = _kind;
         }
-        LvObject(ObjectPtr _v, ObjectPtr _index, Kind _kind) :
-            value(_v), mapIndex(_index)
+        LvObject(ObjectPtr _v, ObjectPtr _index, Kind _kind, ContextPtr _ctx) :
+            value(_v), mapIndex(_index), ctx(_ctx)
         {
             kind = _kind;
         }
@@ -78,7 +80,7 @@ namespace Fig
             if (kind == Kind::Variable)
             {
                 auto s = resolve(slot);
-                if (s->declaredType != ValueType::Any && s->declaredType != v->getTypeInfo())
+                if (!isTypeMatch(s->declaredType, v, ctx))
                 {
                     throw RuntimeError(
                         FString(

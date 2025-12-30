@@ -21,6 +21,7 @@
 #include <Ast/Statements/IfSt.hpp>
 #include <Ast/Statements/ImplementSt.hpp>
 #include <Ast/Statements/ImportSt.hpp>
+#include <Ast/Statements/InterfaceDefSt.hpp>
 #include <Ast/Statements/FunctionDefSt.hpp>
 #include <Ast/Statements/ControlSt.hpp>
 #include <Ast/Statements/ExpressionStmt.hpp>

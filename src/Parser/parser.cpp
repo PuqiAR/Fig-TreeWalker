@@ -1,3 +1,8 @@
+#include "Ast/Statements/ImplementSt.hpp"
+#include "Ast/astBase.hpp"
+#include "Ast/functionParameters.hpp"
+#include "Error/error.hpp"
+#include "Token/token.hpp"
 #include <Parser/parser.hpp>
 
 namespace Fig
@@ -365,6 +370,114 @@ namespace Fig
         }
         return makeAst<Ast::StructDefSt>(isPublic, structName, fields, makeAst<Ast::BlockStatementAst>(stmts));
     }
+
+    Ast::InterfaceDef Parser::__parseInterfaceDef(bool isPublic)
+    {
+        // entry: current is interface name
+        FString interfaceName = currentToken().getValue();
+        next();                       // consume name
+        expect(TokenType::LeftBrace); // `{
+        next();                       // consume `{`
+
+        std::vector<Ast::InterfaceMethod> methods;
+
+        while (true)
+        {
+            if (isThis(TokenType::RightBrace))
+            {
+                next(); // consume `}`
+                break;
+            }
+            if (isThis(TokenType::Identifier))
+            {
+                FString funcName = currentToken().getValue();
+                next(); // consume func name
+
+                expect(TokenType::LeftParen);
+                Ast::FunctionParameters paras = __parseFunctionParameters();
+
+                expect(TokenType::RightArrow); // ->
+                next();                        // consume `->`
+
+                expect(TokenType::Identifier, u8"return type");
+                FString returnType = currentToken().getValue();
+                next(); // consume return type
+
+                if (isThis(TokenType::LeftBrace))
+                {
+                    Ast::BlockStatement block = __parseBlockStatement();
+
+                    methods.push_back(Ast::InterfaceMethod(
+                        funcName,
+                        paras,
+                        returnType,
+                        block));
+                    continue;
+                }
+                expect(TokenType::Semicolon);
+                next(); // consume `;`
+
+                methods.push_back(Ast::InterfaceMethod(
+                    funcName,
+                    paras,
+                    returnType));
+            }
+            else
+            {
+                throw SyntaxError(FString(u8"Invalid syntax"), currentAAI.line, currentAAI.column);
+            }
+        }
+        return makeAst<Ast::InterfaceDefAst>(interfaceName, methods, isPublic);
+    }
+
+    Ast::Implement Parser::__parseImplement()
+    {
+        // entry: current is `impl`
+        next(); // consume `impl`
+        expect(TokenType::Identifier, u8"interface name");
+        FString interfaceName = currentToken().getValue();
+        next(); // consume interface name
+
+        expect(TokenType::For);
+        next(); // consume `for`
+
+        expect(TokenType::Identifier, u8"struct name");
+        FString structName = currentToken().getValue();
+        next();                       // consume name
+        expect(TokenType::LeftBrace); // {
+        next();  // consume `{`
+
+        std::vector<Ast::ImplementMethod> methods;
+
+        while (true)
+        {
+            if (isThis(TokenType::RightBrace))
+            {
+                next(); // consume `}`
+                break;
+            }
+            if (isThis(TokenType::Identifier))
+            {
+                FString funcName = currentToken().getValue();
+                next(); // consume func name
+                expect(TokenType::LeftParen);
+                Ast::FunctionParameters paras = __parseFunctionParameters();
+                expect(TokenType::LeftBrace);
+                Ast::BlockStatement body = __parseBlockStatement();
+                methods.push_back(Ast::ImplementMethod(
+                    funcName,
+                    paras,
+                    body));
+            }
+            else
+            {
+                throw SyntaxError(FString(u8"Invalid syntax"), currentAAI.line, currentAAI.column);
+            }
+        }
+
+        return makeAst<Ast::ImplementAst>(interfaceName, structName, methods);
+    }
+
     Ast::Statement Parser::__parseStatement()
     {
         Ast::Statement stmt;
@@ -389,9 +502,13 @@ namespace Fig
             {
                 stmt = __parseStructDef(true);
             }
+            else if (isThis(TokenType::Interface))
+            {
+                stmt = __parseInterfaceDef(true);
+            }
             else
             {
-                throwAddressableError<SyntaxError>(FString(u8"Expected `var`, `const`, `function` or `struct` after `public`"));
+                throwAddressableError<SyntaxError>(FString(u8"Expected `var`, `const`, `function`, `struct` or `interface` after `public`"));
             }
         }
         else if (isThis(TokenType::Variable) || isThis(TokenType::Const))
@@ -408,6 +525,16 @@ namespace Fig
             expectPeek(TokenType::Identifier, u8"struct name");
             next();
             stmt = __parseStructDef(false);
+        }
+        else if (isThis(TokenType::Interface))
+        {
+            expectPeek(TokenType::Identifier, u8"interface name");
+            next();
+            stmt = __parseInterfaceDef(false);
+        }
+        else if (isThis(TokenType::Implement))
+        {
+            stmt = __parseImplement();
         }
         else if (isThis(TokenType::If))
         {
@@ -501,7 +628,7 @@ namespace Fig
                     expect(TokenType::RightParen);
                     next(); // consume `)`
                 }
-                else 
+                else
                 {
                     elifCondition = parseExpression(0);
                 }

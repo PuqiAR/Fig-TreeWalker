@@ -35,7 +35,7 @@ namespace Fig
         }
 
         TypeInfo();
-        TypeInfo(FString _name, bool reg = false);
+        explicit TypeInfo(const FString &_name, bool reg = false);
         TypeInfo(const TypeInfo &other) = default;
 
         bool operator==(const TypeInfo &other) const
@@ -68,7 +68,7 @@ namespace Fig
         extern const TypeInfo List;
         extern const TypeInfo Map;
         extern const TypeInfo Module;
-        // extern const TypeInfo Tuple;
+        extern const TypeInfo InterfaceType;
 
         using IntClass = int64_t;
         using DoubleClass = double;

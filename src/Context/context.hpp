@@ -1,5 +1,8 @@
 #pragma once
 
+#include "Value/interface.hpp"
+#include <Value/Type.hpp>
+#include <algorithm>
 #include <unordered_map>
 #include <iostream>
 #include <memory>
@@ -12,6 +15,14 @@
 namespace Fig
 {
 
+    struct ImplRecord
+    {
+        TypeInfo interfaceType;
+        TypeInfo structType;
+
+        std::unordered_map<FString, Function> implMethods;
+    };
+
     class Context : public std::enable_shared_from_this<Context>
     {
     private:
@@ -20,7 +31,9 @@ namespace Fig
 
         std::unordered_map<std::size_t, Function> functions;
         std::unordered_map<std::size_t, FString> functionNames;
-        // std::unordered_map<std::size_t, FString> structTypeNames;
+
+        // implRegistry <Struct, ordered list of ImplRecord>
+        std::unordered_map<TypeInfo, std::vector<ImplRecord>, TypeInfoHash> implRegistry;
 
     public:
         ContextPtr parent;
@@ -28,7 +41,7 @@ namespace Fig
         Context(const Context &) = default;
         Context(const FString &name, ContextPtr p = nullptr) :
             scopeName(name), parent(p) {}
-            
+
         void setParent(ContextPtr _parent)
         {
             parent = _parent;
@@ -49,6 +62,7 @@ namespace Fig
             variables.insert(c.variables.begin(), c.variables.end());
             functions.insert(c.functions.begin(), c.functions.end());
             functionNames.insert(c.functionNames.begin(), c.functionNames.end());
+            implRegistry.insert(c.implRegistry.begin(), c.implRegistry.end());
             // structTypeNames.insert(c.structTypeNames.begin(), c.structTypeNames.end());
         }
 
@@ -243,6 +257,169 @@ namespace Fig
             }
             return false;
         }
+
+        bool hasImplRegisted(const TypeInfo &structType, const TypeInfo &interfaceType) const
+        {
+            auto it = implRegistry.find(structType);
+            if (it != implRegistry.end())
+            {
+                for (auto &r : it->second)
+                {
+                    if (r.interfaceType == interfaceType)
+                        return true;
+                }
+            }
+            return parent && parent->hasImplRegisted(structType, interfaceType);
+        }
+
+        std::optional<ImplRecord> getImplRecord(const TypeInfo &structType, const TypeInfo &interfaceType) const
+        {
+            auto it = implRegistry.find(structType);
+            if (it != implRegistry.end())
+            {
+                for (auto &r : it->second)
+                {
+                    if (r.interfaceType == interfaceType)
+                        return r;
+                }
+            }
+
+            if (parent)
+                return parent->getImplRecord(structType, interfaceType);
+
+            return std::nullopt;
+        }
+
+        void setImplRecord(const TypeInfo &structType, const TypeInfo &interfaceType, const ImplRecord &record)
+        {
+            auto &list = implRegistry[structType];
+
+            for (auto &r : list)
+            {
+                if (r.interfaceType == interfaceType)
+                    return;
+            }
+
+            list.push_back(record); // order is the level
+        }
+
+        bool hasMethodImplemented(const TypeInfo &structType, const FString &functionName) const
+        {
+            auto it = implRegistry.find(structType);
+            if (it == implRegistry.end())
+                return false;
+
+            for (auto &record : it->second)
+            {
+                if (record.implMethods.contains(functionName))
+                    return true;
+            }
+
+            return false;
+        }
+
+        bool hasDefaultImplementedMethod(const TypeInfo &structType, const FString &functionName) const
+        {
+            auto it = implRegistry.find(structType);
+            if (it == implRegistry.end())
+                return false;
+
+            std::vector<TypeInfo> implementedInterfaces;
+            for (auto &record : it->second)
+                implementedInterfaces.push_back(record.interfaceType);
+
+            for (auto &[_, slot] : variables)
+            {
+                if (!slot->value->is<InterfaceType>())
+                    continue;
+
+                InterfaceType &interface = slot->value->as<InterfaceType>();
+
+                bool implemented =
+                    std::any_of(
+                        implementedInterfaces.begin(),
+                        implementedInterfaces.end(),
+                        [&](const TypeInfo &ti) { return ti == interface.type; });
+
+                if (!implemented)
+                    continue;
+
+                for (auto &method : interface.methods)
+                {
+                    if (method.name == functionName && method.hasDefaultBody())
+                        return true;
+                }
+            }
+
+            return false;
+        }
+
+        Function getDefaultImplementedMethod(const TypeInfo &structType, const FString &functionName)
+        {
+            // O(N²)
+            // SLOW
+            // wwww (sad)
+
+            // huh
+            // just let it be SLOW
+            // i dont give a fuck
+
+            auto it = implRegistry.find(structType);
+            if (it == implRegistry.end())
+                assert(false);
+
+            std::vector<TypeInfo> implementedInterfaces;
+            for (auto &record : it->second)
+                implementedInterfaces.push_back(record.interfaceType);
+
+            for (auto &[_, slot] : variables)
+            {
+                if (!slot->value->is<InterfaceType>())
+                    continue;
+
+                InterfaceType &interface = slot->value->as<InterfaceType>();
+
+                bool implemented =
+                    std::any_of(
+                        implementedInterfaces.begin(),
+                        implementedInterfaces.end(),
+                        [&](const TypeInfo &ti) { return ti == interface.type; });
+
+                if (!implemented)
+                    continue;
+
+                for (auto &method : interface.methods)
+                {
+                    if (method.name == functionName)
+                    {
+                        if (!method.hasDefaultBody())
+                            assert(false);
+
+                        return Function(
+                            method.paras,
+                            TypeInfo(method.returnType),
+                            method.defaultBody,
+                            shared_from_this());
+                    }
+                }
+            }
+
+            assert(false);
+        }
+
+        const Function &getImplementedMethod(const TypeInfo &structType, const FString &functionName) const
+        {
+            const auto &list = implRegistry.at(structType);
+            for (auto &record : list)
+            {
+                auto it = record.implMethods.find(functionName);
+                if (it != record.implMethods.end())
+                    return it->second;
+            }
+
+            assert(false);
+        }
+
         void printStackTrace(std::ostream &os = std::cerr, int indent = 0) const
         {
             const Context *ctx = this;

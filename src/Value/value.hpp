@@ -1,11 +1,13 @@
 #pragma once
 #include <Value/function.hpp>
+#include <Value/interface.hpp>
 #include <Value/structType.hpp>
 #include <Value/structInstance.hpp>
 #include <Value/Type.hpp>
 #include <Value/valueError.hpp>
 #include <Value/module.hpp>
 
+#include <memory>
 #include <variant>
 #include <cmath>
 #include <string>
@@ -33,7 +35,7 @@ namespace Fig
     using ObjectPtr = std::shared_ptr<Object>;
     using List = std::vector<ObjectPtr>;
 
-    FString prettyType(ObjectPtr obj);
+    FString prettyType(std::shared_ptr<const Object> obj);
 
     struct ValueKey
     {
@@ -48,7 +50,10 @@ namespace Fig
     };
     using Map = std::unordered_map<ValueKey, ObjectPtr, ValueKeyHash>;
 
-    class Object
+    bool isTypeMatch(const TypeInfo &, ObjectPtr, ContextPtr);
+    bool implements(const TypeInfo &, const TypeInfo &, ContextPtr);
+
+    class Object : public std::enable_shared_from_this<Object>
     {
     public:
         using VariantType = std::variant<
@@ -62,7 +67,8 @@ namespace Fig
             StructInstance,
             List,
             Map,
-            Module>;
+            Module,
+            InterfaceType>;
 
         std::unordered_map<TypeInfo,
                            std::unordered_map<FString,
@@ -207,7 +213,9 @@ namespace Fig
                                               map.contains(index));
                                       }},
                                  }},
-                {ValueType::Module, {}}};
+                {ValueType::Module, {}},
+                {ValueType::InterfaceType, {}},
+            };
         std::unordered_map<TypeInfo, std::unordered_map<FString, int>, TypeInfoHash> memberTypeFunctionsParas{
             {ValueType::Null, {}},
             {ValueType::Int, {}},
@@ -226,8 +234,8 @@ namespace Fig
                                  {u8"get", 1},
                                  {u8"contains", 1},
                              }},
-            {ValueType::Module, {}}
-
+            {ValueType::Module, {}},
+            {ValueType::InterfaceType, {}},
         };
         bool hasMemberFunction(const FString &name) const
         {
@@ -268,6 +276,8 @@ namespace Fig
             data(m) {}
         Object(const Module &m) :
             data(m) {}
+        Object(const InterfaceType &i) :
+            data(i) {}
 
         Object(const Object &) = default;
         Object(Object &&) noexcept = default;
@@ -364,6 +374,9 @@ namespace Fig
                 else if constexpr (std::is_same_v<T, Module>)
                     return ValueType::Module;
 
+                else if constexpr (std::is_same_v<T, InterfaceType>)
+                    return ValueType::InterfaceType;
+
                 else
                     return ValueType::Any;
             },
@@ -397,11 +410,11 @@ namespace Fig
             if (is<ValueType::StringClass>()) return FString(u8"<String \"") + as<ValueType::StringClass>() + FString(u8"\" >");
             if (is<ValueType::BoolClass>()) return as<ValueType::BoolClass>() ? FString(u8"true") : FString(u8"false");
             if (is<Function>())
-                return FString(std::format("<Function {} at {:p}>",
+                return FString(std::format("<Function '{}' at {:p}>",
                                            as<Function>().id,
                                            static_cast<const void *>(&as<Function>())));
             if (is<StructType>())
-                return FString(std::format("<StructType {} at {:p}>",
+                return FString(std::format("<StructType '{}' at {:p}>",
                                            as<StructType>().type.toString().toBasicString(),
                                            static_cast<const void *>(&as<StructType>())));
             if (is<StructInstance>())
@@ -441,8 +454,16 @@ namespace Fig
             if (is<Module>())
             {
                 return FString(std::format(
-                    "<Module at {:p}>",
+                    "<Module '{}' at {:p}>",
+                    as<Module>().name.toBasicString(),
                     static_cast<const void *>(&as<Module>())));
+            }
+            if (is<InterfaceType>())
+            {
+                return FString(std::format(
+                    "<InterfaceType '{}' at {:p}",
+                    as<InterfaceType>().type.toString().toBasicString(),
+                    static_cast<const void *>(&as<InterfaceType>())));
             }
             return FString(u8"<error>");
         }
