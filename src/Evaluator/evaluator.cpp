@@ -1,6 +1,6 @@
-#include "Ast/Statements/ErrorFlow.hpp"
+#include <Ast/Statements/ErrorFlow.hpp>
 #include "Value/VariableSlot.hpp"
-#include "Value/value.hpp"
+#include <Value/value.hpp>
 #include <Ast/AccessModifier.hpp>
 #include <Ast/Statements/ImplementSt.hpp>
 #include <Ast/Statements/InterfaceDefSt.hpp>
@@ -25,21 +25,16 @@
 namespace Fig
 {
 
-    bool
-    Evaluator::isInterfaceSignatureMatch(const Ast::ImplementMethod &implMethod,
-                                         const Ast::InterfaceMethod &ifMethod)
+    bool Evaluator::isInterfaceSignatureMatch(const Ast::ImplementMethod &implMethod,
+                                              const Ast::InterfaceMethod &ifMethod)
     {
-        return implMethod.name == ifMethod.name
-               && implMethod.paras == ifMethod.paras;
+        return implMethod.name == ifMethod.name && implMethod.paras == ifMethod.paras;
     }
 
     LvObject Evaluator::evalVarExpr(Ast::VarExpr var, ContextPtr ctx)
     {
         const FString &name = var->name;
-        if (!ctx->contains(name))
-        {
-            throw EvaluatorError(u8"UndeclaredIdentifierError", name, var);
-        }
+        if (!ctx->contains(name)) { throw EvaluatorError(u8"UndeclaredIdentifierError", name, var); }
         return LvObject(ctx->get(name), ctx);
     }
     LvObject Evaluator::evalMemberExpr(Ast::MemberExpr me, ContextPtr ctx)
@@ -56,80 +51,83 @@ namespace Fig
             }
             else
             {
-                throw EvaluatorError(
-                    u8"VariableNotFoundError",
-                    std::format(
-                        "`{}` has not variable '{}', check if it is public",
-                        baseVal->toString().toBasicString(),
-                        member.toBasicString()),
-                    me->base);
+                throw EvaluatorError(u8"VariableNotFoundError",
+                                     std::format("`{}` has not variable '{}', check if it is public",
+                                                 baseVal->toString().toBasicString(),
+                                                 member.toBasicString()),
+                                     me->base);
             }
         }
         if (baseVal->hasMemberFunction(member))
         {
+            return LvObject(std::make_shared<VariableSlot>(
+                                member,
+                                std::make_shared<Object>(Function(baseVal->getMemberFunction(member),
+                                                                  baseVal->getMemberFunctionParaCount(member))),
+                                ValueType::Function,
+                                AccessModifier::PublicConst),
+                            ctx); // fake l-value
+        }
+    
+        if (ctx->hasMethodImplemented(baseVal->getTypeInfo(), member))
+        {
+            // builtin type implementation!
+            // e.g. impl xxx for Int
+
+            auto &fn = ctx->getImplementedMethod(baseVal->getTypeInfo(), member);
+            Function boundFn(fn.paras,
+                             fn.retType,
+                             fn.body,
+                             ctx // current context
+            );
             return LvObject(
                 std::make_shared<VariableSlot>(
-                    member,
-                    std::make_shared<Object>(
-                        Function(baseVal->getMemberFunction(member),
-                                 baseVal->getMemberFunctionParaCount(member))),
-                    ValueType::Function,
-                    AccessModifier::PublicConst),
-                ctx); // fake l-value
+                    member, std::make_shared<Object>(boundFn), ValueType::Function, AccessModifier::PublicConst),
+                ctx);
         }
-        if (baseVal->getTypeInfo()
-            != ValueType::StructInstance) // and not member function found
+
+        if (baseVal->getTypeInfo() != ValueType::StructInstance) // and not member function found
         {
             throw EvaluatorError(
                 u8"NoAttributeError",
-                std::format("`{}` has not attribute '{}'",
-                            baseVal->toString().toBasicString(),
-                            member.toBasicString()),
+                std::format("`{}` has not attribute '{}'", baseVal->toString().toBasicString(), member.toBasicString()),
                 me->base);
         }
         const StructInstance &si = baseVal->as<StructInstance>();
         if (ctx->hasMethodImplemented(si.parentType, member))
         {
             auto &fn = ctx->getImplementedMethod(si.parentType, member);
-            Function boundFn(
-                fn.paras,
-                fn.retType,
-                fn.body,
-                si.localContext // create a new function and set closure context
-                                // to struct instance context
+            Function boundFn(fn.paras,
+                             fn.retType,
+                             fn.body,
+                             si.localContext // create a new function and set closure context
+                                             // to struct instance context
             );
-            return LvObject(std::make_shared<VariableSlot>(
-                                member,
-                                std::make_shared<Object>(boundFn),
-                                ValueType::Function,
-                                AccessModifier::PublicConst),
-                            ctx);
+            return LvObject(
+                std::make_shared<VariableSlot>(
+                    member, std::make_shared<Object>(boundFn), ValueType::Function, AccessModifier::PublicConst),
+                ctx);
         }
-        else if (si.localContext->containsInThisScope(member)
-                 && si.localContext->isVariablePublic(member))
+        else if (si.localContext->containsInThisScope(member) && si.localContext->isVariablePublic(member))
         {
             return LvObject(si.localContext->get(member), ctx);
         }
         else if (ctx->hasDefaultImplementedMethod(si.parentType, member))
         {
-            return LvObject(
-                std::make_shared<VariableSlot>(
-                    member,
-                    std::make_shared<Object>(ctx->getDefaultImplementedMethod(
-                        si.parentType, member)),
-                    ValueType::Function,
-                    AccessModifier::PublicConst),
-                ctx);
+            return LvObject(std::make_shared<VariableSlot>(
+                                member,
+                                std::make_shared<Object>(ctx->getDefaultImplementedMethod(si.parentType, member)),
+                                ValueType::Function,
+                                AccessModifier::PublicConst),
+                            ctx);
         }
         else
         {
-            throw EvaluatorError(
-                u8"NoAttributeError",
-                std::format(
-                    "`{}` has not attribute '{}' and no interfaces have been implemented it",
-                    baseVal->toString().toBasicString(),
-                    member.toBasicString()),
-                me->base);
+            throw EvaluatorError(u8"NoAttributeError",
+                                 std::format("`{}` has not attribute '{}' and no interfaces have been implemented it",
+                                             baseVal->toString().toBasicString(),
+                                             member.toBasicString()),
+                                 me->base);
         }
     }
     LvObject Evaluator::evalIndexExpr(Ast::IndexExpr ie, ContextPtr ctx)
@@ -145,8 +143,7 @@ namespace Fig
             {
                 throw EvaluatorError(
                     u8"TypeError",
-                    std::format("Type `List` indices must be `Int`, got '{}'",
-                                prettyType(index).toBasicString()),
+                    std::format("Type `List` indices must be `Int`, got '{}'", prettyType(index).toBasicString()),
                     ie->index);
             }
             List &list = base.get()->as<List>();
@@ -155,26 +152,19 @@ namespace Fig
             {
                 throw EvaluatorError(
                     u8"IndexOutOfRangeError",
-                    std::format("Index {} out of list `{}` range",
-                                indexVal,
-                                base.get()->toString().toBasicString()),
+                    std::format("Index {} out of list `{}` range", indexVal, base.get()->toString().toBasicString()),
                     ie->index);
             }
-            return LvObject(
-                base.get(), indexVal, LvObject::Kind::ListElement, ctx);
+            return LvObject(base.get(), indexVal, LvObject::Kind::ListElement, ctx);
         }
-        else if (type == ValueType::Map)
-        {
-            return LvObject(base.get(), index, LvObject::Kind::MapElement, ctx);
-        }
+        else if (type == ValueType::Map) { return LvObject(base.get(), index, LvObject::Kind::MapElement, ctx); }
         else if (type == ValueType::String)
         {
             if (index->getTypeInfo() != ValueType::Int)
             {
                 throw EvaluatorError(
                     u8"TypeError",
-                    std::format("Type `String` indices must be `Int`, got '{}'",
-                                prettyType(index).toBasicString()),
+                    std::format("Type `String` indices must be `Int`, got '{}'", prettyType(index).toBasicString()),
                     ie->index);
             }
             FString &string = base.get()->as<ValueType::StringClass>();
@@ -183,20 +173,16 @@ namespace Fig
             {
                 throw EvaluatorError(
                     u8"IndexOutOfRangeError",
-                    std::format("Index {} out of string `{}` range",
-                                indexVal,
-                                base.get()->toString().toBasicString()),
+                    std::format("Index {} out of string `{}` range", indexVal, base.get()->toString().toBasicString()),
                     ie->index);
             }
-            return LvObject(
-                base.get(), indexVal, LvObject::Kind::StringElement, ctx);
+            return LvObject(base.get(), indexVal, LvObject::Kind::StringElement, ctx);
         }
         else
         {
             throw EvaluatorError(
                 u8"NoSubscriptableError",
-                std::format("`{}` object is not subscriptable",
-                            base.declaredType().toString().toBasicString()),
+                std::format("`{}` object is not subscriptable", base.declaredType().toString().toBasicString()),
                 ie->base);
         }
     }
@@ -207,28 +193,24 @@ namespace Fig
         switch (exp->getType())
         {
             case AstType::VarExpr: {
-                Ast::VarExpr var =
-                    std::dynamic_pointer_cast<Ast::VarExprAst>(exp);
+                Ast::VarExpr var = std::dynamic_pointer_cast<Ast::VarExprAst>(exp);
                 assert(var != nullptr);
                 return evalVarExpr(var, ctx);
             }
             case AstType::MemberExpr: {
-                Ast::MemberExpr me =
-                    std::dynamic_pointer_cast<Ast::MemberExprAst>(exp);
+                Ast::MemberExpr me = std::dynamic_pointer_cast<Ast::MemberExprAst>(exp);
                 assert(me != nullptr);
                 return evalMemberExpr(me, ctx);
             }
             case AstType::IndexExpr: {
-                Ast::IndexExpr ie =
-                    std::dynamic_pointer_cast<Ast::IndexExprAst>(exp);
+                Ast::IndexExpr ie = std::dynamic_pointer_cast<Ast::IndexExprAst>(exp);
                 assert(ie != nullptr);
                 return evalIndexExpr(ie, ctx);
             }
             default: {
                 throw EvaluatorError(
                     u8"TypeError",
-                    std::format("Expression '{}' doesn't refer to a lvalue",
-                                exp->typeName().toBasicString()),
+                    std::format("Expression '{}' doesn't refer to a lvalue", exp->typeName().toBasicString()),
                     exp);
             }
         }
@@ -325,14 +307,12 @@ namespace Fig
                 {
                     const StructInstance &si = lhs->as<StructInstance>();
                     const InterfaceType &it = rhs->as<InterfaceType>();
-                    return std::make_shared<Object>(
-                        implements(si.parentType, it.type, ctx));
+                    return std::make_shared<Object>(implements(si.parentType, it.type, ctx));
                 }
                 throw EvaluatorError(
                     u8"TypeError",
-                    std::format(
-                        "Operator `is` requires an struct instance on left-hand side, got '{}'",
-                        lhs->getTypeInfo().toString().toBasicString()),
+                    std::format("Operator `is` requires an struct instance on left-hand side, got '{}'",
+                                lhs->getTypeInfo().toString().toBasicString()),
                     bin->lexp);
             }
 
@@ -405,11 +385,9 @@ namespace Fig
             //         *(lv.get()) ^ *rhs));
             // }
             default:
-                throw EvaluatorError(
-                    u8"UnsupportedOp",
-                    std::format("Unsupport operator '{}' for binary",
-                                magic_enum::enum_name(op)),
-                    bin);
+                throw EvaluatorError(u8"UnsupportedOp",
+                                     std::format("Unsupport operator '{}' for binary", magic_enum::enum_name(op)),
+                                     bin);
         }
     }
     RvObject Evaluator::evalUnary(Ast::UnaryExpr un, ContextPtr ctx)
@@ -431,11 +409,9 @@ namespace Fig
             }
 
             default: {
-                throw EvaluatorError(
-                    u8"UnsupportedOpError",
-                    std::format("Unsupported op '{}' for unary expression",
-                                magic_enum::enum_name(op)),
-                    un);
+                throw EvaluatorError(u8"UnsupportedOpError",
+                                     std::format("Unsupported op '{}' for unary expression", magic_enum::enum_name(op)),
+                                     un);
             }
         }
     }
@@ -446,8 +422,7 @@ namespace Fig
         {
             throw EvaluatorError(
                 u8"TypeError",
-                std::format("Condition must be boolean, got '{}'",
-                            prettyType(condVal).toBasicString()),
+                std::format("Condition must be boolean, got '{}'", prettyType(condVal).toBasicString()),
                 te->condition);
         }
         ValueType::BoolClass cond = condVal->as<ValueType::BoolClass>();
@@ -463,21 +438,15 @@ namespace Fig
         Ast::FunctionCallArgs evaluatedArgs;
         if (fnStruct.isBuiltin)
         {
-            for (const auto &argExpr : fnArgs.argv)
+            for (const auto &argExpr : fnArgs.argv) { evaluatedArgs.argv.push_back(eval(argExpr, ctx)); }
+            if (fnStruct.builtinParamCount != -1 && fnStruct.builtinParamCount != evaluatedArgs.getLength())
             {
-                evaluatedArgs.argv.push_back(eval(argExpr, ctx));
-            }
-            if (fnStruct.builtinParamCount != -1
-                && fnStruct.builtinParamCount != evaluatedArgs.getLength())
-            {
-                throw EvaluatorError(
-                    u8"BuiltinArgumentMismatchError",
-                    std::format(
-                        "Builtin function '{}' expects {} arguments, but {} were provided",
-                        fnName.toBasicString(),
-                        fnStruct.builtinParamCount,
-                        evaluatedArgs.getLength()),
-                    fnArgs.argv.back());
+                throw EvaluatorError(u8"BuiltinArgumentMismatchError",
+                                     std::format("Builtin function '{}' expects {} arguments, but {} were provided",
+                                                 fnName.toBasicString(),
+                                                 fnStruct.builtinParamCount,
+                                                 evaluatedArgs.getLength()),
+                                     fnArgs.argv.back());
             }
             return fnStruct.builtin(evaluatedArgs.argv);
         }
@@ -486,9 +455,8 @@ namespace Fig
         Ast::FunctionParameters fnParas = fnStruct.paras;
 
         // create new context for function call
-        auto newContext = std::make_shared<Context>(
-            FString(std::format("<Function {}()>", fnName.toBasicString())),
-            fnStruct.closureContext);
+        auto newContext = std::make_shared<Context>(FString(std::format("<Function {}()>", fnName.toBasicString())),
+                                                    fnStruct.closureContext);
 
         if (fnParas.variadic)
             goto VariadicFilling;
@@ -496,38 +464,32 @@ namespace Fig
             goto NormalFilling;
 
     NormalFilling: {
-        if (fnArgs.getLength() < fnParas.posParas.size()
-            || fnArgs.getLength() > fnParas.size())
+        if (fnArgs.getLength() < fnParas.posParas.size() || fnArgs.getLength() > fnParas.size())
         {
-            throw RuntimeError(FString(std::format(
-                "Function '{}' expects {} to {} arguments, but {} were provided",
-                fnName.toBasicString(),
-                fnParas.posParas.size(),
-                fnParas.size(),
-                fnArgs.getLength())));
+            throw RuntimeError(FString(std::format("Function '{}' expects {} to {} arguments, but {} were provided",
+                                                   fnName.toBasicString(),
+                                                   fnParas.posParas.size(),
+                                                   fnParas.size(),
+                                                   fnArgs.getLength())));
         }
 
         // positional parameters type check
         size_t i;
         for (i = 0; i < fnParas.posParas.size(); i++)
         {
-            TypeInfo expectedType(
-                fnParas.posParas[i]
-                    .second); // look up type info, if exists a type with the
-                              // name, use it, else throw
+            TypeInfo expectedType(fnParas.posParas[i].second); // look up type info, if exists a type with the
+                                                               // name, use it, else throw
             ObjectPtr argVal = eval(fnArgs.argv[i], ctx);
             TypeInfo actualType = argVal->getTypeInfo();
             if (!isTypeMatch(expectedType, argVal, ctx))
             {
-                throw EvaluatorError(
-                    u8"ArgumentTypeMismatchError",
-                    std::format(
-                        "In function '{}', argument '{}' expects type '{}', but got type '{}'",
-                        fnName.toBasicString(),
-                        fnParas.posParas[i].first.toBasicString(),
-                        expectedType.toString().toBasicString(),
-                        actualType.toString().toBasicString()),
-                    fnArgs.argv[i]);
+                throw EvaluatorError(u8"ArgumentTypeMismatchError",
+                                     std::format("In function '{}', argument '{}' expects type '{}', but got type '{}'",
+                                                 fnName.toBasicString(),
+                                                 fnParas.posParas[i].first.toBasicString(),
+                                                 expectedType.toString().toBasicString(),
+                                                 actualType.toString().toBasicString()),
+                                     fnArgs.argv[i]);
             }
             evaluatedArgs.argv.push_back(argVal);
         }
@@ -537,8 +499,7 @@ namespace Fig
             size_t defParamIndex = i - fnParas.posParas.size();
             TypeInfo expectedType(fnParas.defParas[defParamIndex].second.first);
 
-            ObjectPtr defaultVal =
-                eval(fnParas.defParas[defParamIndex].second.second, ctx);
+            ObjectPtr defaultVal = eval(fnParas.defParas[defParamIndex].second.second, ctx);
             if (!isTypeMatch(expectedType, defaultVal, ctx))
             {
                 throw EvaluatorError(
@@ -556,15 +517,13 @@ namespace Fig
             TypeInfo actualType = argVal->getTypeInfo();
             if (!isTypeMatch(expectedType, argVal, ctx))
             {
-                throw EvaluatorError(
-                    u8"ArgumentTypeMismatchError",
-                    std::format(
-                        "In function '{}', argument '{}' expects type '{}', but got type '{}'",
-                        fnName.toBasicString(),
-                        fnParas.defParas[defParamIndex].first.toBasicString(),
-                        expectedType.toString().toBasicString(),
-                        actualType.toString().toBasicString()),
-                    fnArgs.argv[i]);
+                throw EvaluatorError(u8"ArgumentTypeMismatchError",
+                                     std::format("In function '{}', argument '{}' expects type '{}', but got type '{}'",
+                                                 fnName.toBasicString(),
+                                                 fnParas.defParas[defParamIndex].first.toBasicString(),
+                                                 expectedType.toString().toBasicString(),
+                                                 actualType.toString().toBasicString()),
+                                     fnArgs.argv[i]);
             }
             evaluatedArgs.argv.push_back(argVal);
         }
@@ -572,8 +531,7 @@ namespace Fig
         for (; i < fnParas.size(); i++)
         {
             size_t defParamIndex = i - fnParas.posParas.size();
-            ObjectPtr defaultVal =
-                eval(fnParas.defParas[defParamIndex].second.second, ctx);
+            ObjectPtr defaultVal = eval(fnParas.defParas[defParamIndex].second.second, ctx);
             evaluatedArgs.argv.push_back(defaultVal);
         }
 
@@ -591,8 +549,7 @@ namespace Fig
             {
                 size_t defParamIndex = j - fnParas.posParas.size();
                 paramName = fnParas.defParas[defParamIndex].first;
-                paramType =
-                    TypeInfo(fnParas.defParas[defParamIndex].second.first);
+                paramType = TypeInfo(fnParas.defParas[defParamIndex].second.first);
             }
             AccessModifier argAm = AccessModifier::Const;
             newContext->def(paramName, paramType, argAm, evaluatedArgs.argv[j]);
@@ -606,10 +563,7 @@ namespace Fig
         {
             list.push_back(eval(exp, ctx)); // eval arguments in current scope
         }
-        newContext->def(fnParas.variadicPara,
-                        ValueType::List,
-                        AccessModifier::Const,
-                        std::make_shared<Object>(list));
+        newContext->def(fnParas.variadicPara, ValueType::List, AccessModifier::Const, std::make_shared<Object>(list));
         goto ExecuteBody;
     }
 
@@ -627,14 +581,12 @@ namespace Fig
         }
         if (!isTypeMatch(fnStruct.retType, retVal, ctx))
         {
-            throw EvaluatorError(
-                u8"ReturnTypeMismatchError",
-                std::format(
-                    "Function '{}' expects return type '{}', but got type '{}'",
-                    fnName.toBasicString(),
-                    fnStruct.retType.toString().toBasicString(),
-                    prettyType(retVal).toBasicString()),
-                fnStruct.body);
+            throw EvaluatorError(u8"ReturnTypeMismatchError",
+                                 std::format("Function '{}' expects return type '{}', but got type '{}'",
+                                             fnName.toBasicString(),
+                                             fnStruct.retType.toString().toBasicString(),
+                                             prettyType(retVal).toBasicString()),
+                                 fnStruct.body);
         }
         return retVal;
     }
@@ -675,19 +627,16 @@ namespace Fig
             case AstType::IndexExpr: return evalLv(exp, ctx).get();
 
             case AstType::FunctionCall: {
-                auto fnCall =
-                    std::dynamic_pointer_cast<Ast::FunctionCallExpr>(exp);
+                auto fnCall = std::dynamic_pointer_cast<Ast::FunctionCallExpr>(exp);
                 assert(fnCall != nullptr);
 
                 Ast::Expression callee = fnCall->callee;
                 ObjectPtr fnObj = eval(callee, ctx);
                 if (fnObj->getTypeInfo() != ValueType::Function)
                 {
-                    throw EvaluatorError(
-                        u8"ObjectNotCallable",
-                        std::format("Object `{}` isn't callable",
-                                    fnObj->toString().toBasicString()),
-                        callee);
+                    throw EvaluatorError(u8"ObjectNotCallable",
+                                         std::format("Object `{}` isn't callable", fnObj->toString().toBasicString()),
+                                         callee);
                 }
                 const Function &fn = fnObj->as<Function>();
                 size_t fnId = fn.id;
@@ -696,17 +645,14 @@ namespace Fig
                 // u8"<anonymous>");
 
                 auto fnNameOpt = ctx->getFunctionName(fnId);
-                if (!fnNameOpt && fn.closureContext)
-                    fnNameOpt = fn.closureContext->getFunctionName(fnId);
+                if (!fnNameOpt && fn.closureContext) fnNameOpt = fn.closureContext->getFunctionName(fnId);
 
-                const FString &fnName =
-                    (fnNameOpt ? *fnNameOpt : u8"<anonymous>");
+                const FString &fnName = (fnNameOpt ? *fnNameOpt : u8"<anonymous>");
 
                 return evalFunctionCall(fn, fnCall->arg, fnName, ctx);
             }
             case AstType::FunctionLiteralExpr: {
-                auto fnLiteral =
-                    std::dynamic_pointer_cast<Ast::FunctionLiteralExprAst>(exp);
+                auto fnLiteral = std::dynamic_pointer_cast<Ast::FunctionLiteralExprAst>(exp);
                 assert(fnLiteral != nullptr);
 
                 Ast::BlockStatement body = nullptr;
@@ -728,23 +674,20 @@ namespace Fig
                     body = fnLiteral->getBlockBody();
                     assert(body != nullptr);
                 }
-                Function fn(
-                    fnLiteral->paras, ValueType::Any, body, ctx
-                    /*
-                        pass the ctx(fnLiteral eval context) as closure context
-                    */
+                Function fn(fnLiteral->paras, ValueType::Any, body, ctx
+                            /*
+                                pass the ctx(fnLiteral eval context) as closure context
+                            */
                 );
                 return std::make_shared<Object>(std::move(fn));
             }
             case AstType::InitExpr: {
-                auto initExpr =
-                    std::dynamic_pointer_cast<Ast::InitExprAst>(exp);
+                auto initExpr = std::dynamic_pointer_cast<Ast::InitExprAst>(exp);
                 if (!ctx->contains(initExpr->structName))
                 {
                     throw EvaluatorError(
                         u8"StructNotFoundError",
-                        std::format("Structure type '{}' not found",
-                                    initExpr->structName.toBasicString()),
+                        std::format("Structure type '{}' not found", initExpr->structName.toBasicString()),
                         initExpr);
                 }
                 ObjectPtr structTypeVal = ctx->get(initExpr->structName)->value;
@@ -752,13 +695,120 @@ namespace Fig
                 {
                     throw EvaluatorError(
                         u8"NotAStructTypeError",
-                        std::format("'{}' is not a structure type",
-                                    initExpr->structName.toBasicString()),
+                        std::format("'{}' is not a structure type", initExpr->structName.toBasicString()),
                         initExpr);
                 }
                 const StructType &structT = structTypeVal->as<StructType>();
-                ContextPtr defContext =
-                    structT.defContext; // definition context
+
+                if (structT.builtin)
+                {
+                    const TypeInfo &type = structT.type;
+                    auto &args = initExpr->args;
+                    size_t argSize = args.size();
+
+                    if (argSize > 1)
+                    {
+                        throw EvaluatorError(
+                            u8"StructInitArgumentMismatchError",
+                            std::format("Builtin class `{}` expects 0 or 1 argument, but {} were provided",
+                                        type.toString().toBasicString(),
+                                        argSize),
+                            initExpr);
+                    }
+
+                    // default value
+                    if (argSize == 0) {
+                        if (type == ValueType::Any || type == ValueType::Null || type == ValueType::Function)
+                        {
+                            throw EvaluatorError(
+                                u8"BuiltinNotConstructibleError",
+                                std::format("Builtin type `{}` cannot be constructed", type.toString().toBasicString()),
+                                initExpr);
+                        }
+                        return std::make_shared<Object>(Object::defaultValue(type));
+                    }
+
+                    ObjectPtr val = eval(args[0].second, ctx);
+
+                    auto err = [&](const char *msg) {
+                        throw EvaluatorError(
+                            u8"BuiltinInitTypeMismatchError",
+                            std::format("Builtin `{}` constructor {}", type.toString().toBasicString(), msg),
+                            initExpr);
+                    };
+
+                    // ===================== Int =====================
+                    if (type == ValueType::Int)
+                    {
+                        if (!val->is<ValueType::IntClass>()) err("expects Int");
+                        return std::make_shared<Object>(val->as<ValueType::IntClass>());
+                    }
+
+                    // ===================== Double =====================
+                    if (type == ValueType::Double)
+                    {
+                        if (!val->is<ValueType::DoubleClass>()) err("expects Double");
+                        return std::make_shared<Object>(val->as<ValueType::DoubleClass>());
+                    }
+
+                    // ===================== Bool =====================
+                    if (type == ValueType::Bool)
+                    {
+                        if (!val->is<ValueType::BoolClass>()) err("expects Bool");
+                        return std::make_shared<Object>(val->as<ValueType::BoolClass>());
+                    }
+
+                    // ===================== String =====================
+                    if (type == ValueType::String)
+                    {
+                        if (!val->is<ValueType::StringClass>()) err("expects String");
+                        return std::make_shared<Object>(val->as<ValueType::StringClass>());
+                    }
+
+                    // ===================== Null =====================
+                    if (type == ValueType::Null)
+                    {
+                        // Null basically ignores input but keep invariant strict:
+                        if (!val->is<ValueType::NullClass>()) err("expects Null");
+                        return Object::getNullInstance();
+                    }
+
+                    // ===================== List =====================
+                    if (type == ValueType::List)
+                    {
+                        if (!val->is<List>()) err("expects List");
+
+                        const auto &src = val->as<List>();
+                        auto copied = std::make_shared<Object>(List{});
+
+                        auto &dst = copied->as<List>();
+                        dst.reserve(src.size());
+                        for (auto &e : src) dst.push_back(e); // shallow element copy, but new container
+
+                        return copied;
+                    }
+
+                    // ===================== Map =====================
+                    if (type == ValueType::Map)
+                    {
+                        if (!val->is<Map>()) err("expects Map");
+
+                        const auto &src = val->as<Map>();
+                        auto copied = std::make_shared<Object>(Map{});
+
+                        auto &dst = copied->as<Map>();
+                        for (auto &[k, v] : src) dst.emplace(k, v);
+
+                        return copied;
+                    }
+
+                    throw EvaluatorError(
+                        u8"BuiltinNotConstructibleError",
+                        std::format("Builtin type `{}` cannot be constructed", type.toString().toBasicString()),
+                        initExpr);
+                }
+
+                ContextPtr defContext = structT.defContext; // definition context
                 // check init args
 
                 size_t minArgs = 0;
@@ -772,15 +822,13 @@ namespace Fig
                 size_t got = initExpr->args.size();
                 if (got > maxArgs || got < minArgs)
                 {
-                    throw EvaluatorError(
-                        u8"StructInitArgumentMismatchError",
-                        std::format(
-                            "Structure '{}' expects {} to {} fields, but {} were provided",
-                            initExpr->structName.toBasicString(),
-                            minArgs,
-                            maxArgs,
-                            initExpr->args.size()),
-                        initExpr);
+                    throw EvaluatorError(u8"StructInitArgumentMismatchError",
+                                         std::format("Structure '{}' expects {} to {} fields, but {} were provided",
+                                                     initExpr->structName.toBasicString(),
+                                                     minArgs,
+                                                     maxArgs,
+                                                     initExpr->args.size()),
+                                         initExpr);
                 }
 
                 std::vector<std::pair<FString, ObjectPtr>> evaluatedArgs;
@@ -789,14 +837,12 @@ namespace Fig
                     evaluatedArgs.push_back({argName, eval(argExpr, ctx)});
                 }
                 ContextPtr instanceCtx = std::make_shared<Context>(
-                    FString(std::format("<StructInstance {}>",
-                                        initExpr->structName.toBasicString())),
-                    ctx);
+                    FString(std::format("<StructInstance {}>", initExpr->structName.toBasicString())), ctx);
                 /*
                     3 ways of calling constructor
                     .1 Person {"Fig", 1, "IDK"};
-                    .2 Person {name: "Fig", age: 1, sex: "IDK"}; // can be
-                   unordered .3 Person {name, age, sex};
+                    .2 Person {name: "Fig", age: 1, sex: "IDK"}; // can be unordered
+                    .3 Person {name, age, sex};
                 */
                 {
                     using enum Ast::InitExprAst::InitMode;
@@ -813,9 +859,8 @@ namespace Fig
                                 // must be a default value
 
                                 // evaluate default value in definition context
-                                ObjectPtr defaultVal =
-                                    eval(field.defaultValue,
-                                         ctx); // it can't be null here
+                                ObjectPtr defaultVal = eval(field.defaultValue,
+                                                            ctx); // it can't be null here
 
                                 // type check
                                 if (!isTypeMatch(expectedType, defaultVal, ctx))
@@ -824,20 +869,14 @@ namespace Fig
                                         u8"StructFieldTypeMismatchError",
                                         std::format(
                                             "In structure '{}', field '{}' expects type '{}', but got type '{}'",
-                                            initExpr->structName
-                                                .toBasicString(),
+                                            initExpr->structName.toBasicString(),
                                             fieldName.toBasicString(),
-                                            expectedType.toString()
-                                                .toBasicString(),
-                                            prettyType(defaultVal)
-                                                .toBasicString()),
+                                            expectedType.toString().toBasicString(),
+                                            prettyType(defaultVal).toBasicString()),
                                         initExpr);
                                 }
 
-                                instanceCtx->def(fieldName,
-                                                 expectedType,
-                                                 field.am,
-                                                 defaultVal);
+                                instanceCtx->def(fieldName, expectedType, field.am, defaultVal);
                                 continue;
                             }
 
@@ -846,16 +885,14 @@ namespace Fig
                             {
                                 throw EvaluatorError(
                                     u8"StructFieldTypeMismatchError",
-                                    std::format(
-                                        "In structure '{}', field '{}' expects type '{}', but got type '{}'",
-                                        initExpr->structName.toBasicString(),
-                                        fieldName.toBasicString(),
-                                        expectedType.toString().toBasicString(),
-                                        prettyType(argVal).toBasicString()),
+                                    std::format("In structure '{}', field '{}' expects type '{}', but got type '{}'",
+                                                initExpr->structName.toBasicString(),
+                                                fieldName.toBasicString(),
+                                                expectedType.toString().toBasicString(),
+                                                prettyType(argVal).toBasicString()),
                                     initExpr);
                             }
-                            instanceCtx->def(
-                                fieldName, expectedType, field.am, argVal);
+                            instanceCtx->def(fieldName, expectedType, field.am, argVal);
                         }
                     }
                     else
@@ -864,26 +901,21 @@ namespace Fig
                         for (size_t i = 0; i < maxArgs; ++i)
                         {
                             const Field &field = structT.fields[i];
-                            const FString &fieldName =
-                                (field.name.empty() ? evaluatedArgs[i].first :
-                                                      field.name);
+                            const FString &fieldName = (field.name.empty() ? evaluatedArgs[i].first : field.name);
                             if (instanceCtx->containsInThisScope(fieldName))
                             {
-                                throw EvaluatorError(
-                                    u8"StructFieldRedeclarationError",
-                                    std::format(
-                                        "Field '{}' already initialized in structure '{}'",
-                                        fieldName.toBasicString(),
-                                        initExpr->structName.toBasicString()),
-                                    initExpr);
+                                throw EvaluatorError(u8"StructFieldRedeclarationError",
+                                                     std::format("Field '{}' already initialized in structure '{}'",
+                                                                 fieldName.toBasicString(),
+                                                                 initExpr->structName.toBasicString()),
+                                                     initExpr);
                             }
                             if (i + 1 > got)
                             {
                                 // use default value                  //
                                 // evaluate default value in definition context
-                                ObjectPtr defaultVal =
-                                    eval(field.defaultValue,
-                                         defContext); // it can't be null here
+                                ObjectPtr defaultVal = eval(field.defaultValue,
+                                                            defContext); // it can't be null here
 
                                 // type check
                                 const TypeInfo &expectedType = field.type;
@@ -893,20 +925,14 @@ namespace Fig
                                         u8"StructFieldTypeMismatchError",
                                         std::format(
                                             "In structure '{}', field '{}' expects type '{}', but got type '{}'",
-                                            initExpr->structName
-                                                .toBasicString(),
+                                            initExpr->structName.toBasicString(),
                                             fieldName.toBasicString(),
-                                            expectedType.toString()
-                                                .toBasicString(),
-                                            prettyType(defaultVal)
-                                                .toBasicString()),
+                                            expectedType.toString().toBasicString(),
+                                            prettyType(defaultVal).toBasicString()),
                                         initExpr);
                                 }
 
-                                instanceCtx->def(fieldName,
-                                                 field.type,
-                                                 field.am,
-                                                 defaultVal);
+                                instanceCtx->def(fieldName, field.type, field.am, defaultVal);
                                 continue;
                             }
                             const ObjectPtr &argVal = evaluatedArgs[i].second;
@@ -914,34 +940,29 @@ namespace Fig
                             {
                                 throw EvaluatorError(
                                     u8"StructFieldTypeMismatchError",
-                                    std::format(
-                                        "In structure '{}', field '{}' expects type '{}', but got type '{}'",
-                                        initExpr->structName.toBasicString(),
-                                        fieldName.toBasicString(),
-                                        field.type.toString().toBasicString(),
-                                        prettyType(argVal).toBasicString()),
+                                    std::format("In structure '{}', field '{}' expects type '{}', but got type '{}'",
+                                                initExpr->structName.toBasicString(),
+                                                fieldName.toBasicString(),
+                                                field.type.toString().toBasicString(),
+                                                prettyType(argVal).toBasicString()),
                                     initExpr);
                             }
-                            instanceCtx->def(
-                                fieldName, field.type, field.am, argVal);
+                            instanceCtx->def(fieldName, field.type, field.am, argVal);
                         }
                     }
                 }
                 instanceCtx->merge(*structT.defContext);
                 for (auto &[id, fn] : instanceCtx->getFunctions())
                 {
-                    instanceCtx->_update(
-                        *instanceCtx->getFunctionName(id),
-                        std::make_shared<Object>(Function(
-                            fn.paras,
-                            fn.retType,
-                            fn.body,
-                            instanceCtx) // change its closureContext to struct
-                                         // instance's context
-                                                 ));
+                    instanceCtx->_update(*instanceCtx->getFunctionName(id),
+                                         std::make_shared<Object>(Function(fn.paras,
+                                                                           fn.retType,
+                                                                           fn.body,
+                                                                           instanceCtx) // change its closureContext to
+                                                                                        // struct instance's context
+                                                                  ));
                 }
-                return std::make_shared<Object>(
-                    StructInstance(structT.type, instanceCtx));
+                return std::make_shared<Object>(StructInstance(structT.type, instanceCtx));
             }
 
             case AstType::ListExpr: {
@@ -949,10 +970,7 @@ namespace Fig
                 assert(lstExpr != nullptr);
 
                 List list;
-                for (auto &exp : lstExpr->val)
-                {
-                    list.push_back(eval(exp, ctx));
-                }
+                for (auto &exp : lstExpr->val) { list.push_back(eval(exp, ctx)); }
                 return std::make_shared<Object>(std::move(list));
             }
 
@@ -961,18 +979,14 @@ namespace Fig
                 assert(mapExpr != nullptr);
 
                 Map map;
-                for (auto &[key, value] : mapExpr->val)
-                {
-                    map[eval(key, ctx)] = eval(value, ctx);
-                }
+                for (auto &[key, value] : mapExpr->val) { map[eval(key, ctx)] = eval(value, ctx); }
                 return std::make_shared<Object>(std::move(map));
             }
 
             default: assert(false);
         }
     }
-    StatementResult Evaluator::evalBlockStatement(Ast::BlockStatement block,
-                                                  ContextPtr ctx)
+    StatementResult Evaluator::evalBlockStatement(Ast::BlockStatement block, ContextPtr ctx)
     {
         StatementResult sr = StatementResult::normal();
         for (const Ast::Statement &stmt : block->stmts)
@@ -982,8 +996,7 @@ namespace Fig
         }
         return sr;
     }
-    StatementResult Evaluator::evalStatement(Ast::Statement stmt,
-                                             ContextPtr ctx)
+    StatementResult Evaluator::evalStatement(Ast::Statement stmt, ContextPtr ctx)
     {
         using enum Ast::AstType;
         switch (stmt->getType())
@@ -1001,9 +1014,7 @@ namespace Fig
                 {
                     throw EvaluatorError(
                         u8"RedeclarationError",
-                        std::format(
-                            "Variable `{}` already declared in this scope",
-                            varDef->name.toBasicString()),
+                        std::format("Variable `{}` already declared in this scope", varDef->name.toBasicString()),
                         varDef);
                 }
 
@@ -1011,44 +1022,33 @@ namespace Fig
                 if (varDef->expr) { value = eval(varDef->expr, ctx); }
                 TypeInfo declaredType; // default is Any
                 const FString &declaredTypeName = varDef->typeName;
-                if (declaredTypeName == Parser::varDefTypeFollowed)
-                {
-                    declaredType = value->getTypeInfo();
-                }
+                if (declaredTypeName == Parser::varDefTypeFollowed) { declaredType = value->getTypeInfo(); }
                 else if (!declaredTypeName.empty())
                 {
                     declaredType = TypeInfo(declaredTypeName);
-                    if (value != nullptr
-                        && !isTypeMatch(declaredType, value, ctx))
+                    if (value != nullptr && !isTypeMatch(declaredType, value, ctx))
                     {
-                        throw EvaluatorError(
-                            u8"TypeError",
-                            std::format(
-                                "Variable `{}` expects init-value type `{}`, but got '{}'",
-                                varDef->name.toBasicString(),
-                                declaredTypeName.toBasicString(),
-                                prettyType(value).toBasicString()),
-                            varDef->expr);
+                        throw EvaluatorError(u8"TypeError",
+                                             std::format("Variable `{}` expects init-value type `{}`, but got '{}'",
+                                                         varDef->name.toBasicString(),
+                                                         declaredTypeName.toBasicString(),
+                                                         prettyType(value).toBasicString()),
+                                             varDef->expr);
                     }
                     else if (value == nullptr)
                     {
-                        value = std::make_shared<Object>(
-                            Object::defaultValue(declaredType));
+                        value = std::make_shared<Object>(Object::defaultValue(declaredType));
                     } // else -> Ok
                 } // else -> type is Any (default)
                 AccessModifier am =
-                    (varDef->isConst ?
-                         (varDef->isPublic ? AccessModifier::PublicConst :
-                                             AccessModifier::Const) :
-                         (varDef->isPublic ? AccessModifier::Public :
-                                             AccessModifier::Normal));
+                    (varDef->isConst ? (varDef->isPublic ? AccessModifier::PublicConst : AccessModifier::Const) :
+                                       (varDef->isPublic ? AccessModifier::Public : AccessModifier::Normal));
                 ctx->def(varDef->name, declaredType, am, value);
                 return StatementResult::normal();
             }
 
             case FunctionDefSt: {
-                auto fnDef =
-                    std::dynamic_pointer_cast<Ast::FunctionDefSt>(stmt);
+                auto fnDef = std::dynamic_pointer_cast<Ast::FunctionDefSt>(stmt);
                 assert(fnDef != nullptr);
 
                 const FString &fnName = fnDef->name;
@@ -1056,17 +1056,13 @@ namespace Fig
                 {
                     throw EvaluatorError(
                         u8"RedeclarationError",
-                        std::format(
-                            "Function `{}` already declared in this scope",
-                            fnName.toBasicString()),
+                        std::format("Function `{}` already declared in this scope", fnName.toBasicString()),
                         fnDef);
                 }
-                Function fn(
-                    fnDef->paras, TypeInfo(fnDef->retType), fnDef->body, ctx);
+                Function fn(fnDef->paras, TypeInfo(fnDef->retType), fnDef->body, ctx);
                 ctx->def(fnName,
                          ValueType::Function,
-                         (fnDef->isPublic ? AccessModifier::PublicConst :
-                                            AccessModifier::Const),
+                         (fnDef->isPublic ? AccessModifier::PublicConst : AccessModifier::Const),
                          std::make_shared<Object>(fn));
                 return StatementResult::normal();
             }
@@ -1079,9 +1075,7 @@ namespace Fig
                 {
                     throw EvaluatorError(
                         u8"RedeclarationError",
-                        std::format(
-                            "Structure '{}' already defined in this scope",
-                            stDef->name.toBasicString()),
+                        std::format("Structure '{}' already defined in this scope", stDef->name.toBasicString()),
                         stDef);
                 }
                 std::vector<Field> fields;
@@ -1090,55 +1084,43 @@ namespace Fig
                 {
                     if (Utils::vectorContains(field.fieldName, _fieldNames))
                     {
-                        throw EvaluatorError(
-                            u8"RedeclarationError",
-                            std::format(
-                                "Field '{}' already defined in structure '{}'",
-                                field.fieldName.toBasicString(),
-                                stDef->name.toBasicString()),
-                            stDef);
+                        throw EvaluatorError(u8"RedeclarationError",
+                                             std::format("Field '{}' already defined in structure '{}'",
+                                                         field.fieldName.toBasicString(),
+                                                         stDef->name.toBasicString()),
+                                             stDef);
                     }
-                    fields.push_back(Field(field.am,
-                                           field.fieldName,
-                                           TypeInfo(field.tiName),
-                                           field.defaultValueExpr));
+                    fields.push_back(Field(field.am, field.fieldName, TypeInfo(field.tiName), field.defaultValueExpr));
                 }
-                ContextPtr defContext = std::make_shared<Context>(
-                    FString(std::format("<Struct {} at {}:{}>",
-                                        stDef->name.toBasicString(),
-                                        stDef->getAAI().line,
-                                        stDef->getAAI().column)),
-                    ctx);
+                ContextPtr defContext = std::make_shared<Context>(FString(std::format("<Struct {} at {}:{}>",
+                                                                                      stDef->name.toBasicString(),
+                                                                                      stDef->getAAI().line,
+                                                                                      stDef->getAAI().column)),
+                                                                  ctx);
                 const Ast::BlockStatement &body = stDef->body;
                 for (auto &st : body->stmts)
                 {
                     if (st->getType() != Ast::AstType::FunctionDefSt)
                     {
-                        throw EvaluatorError(
-                            u8"UnexpectedStatementInStructError",
-                            std::format(
-                                "Unexpected statement `{}` in struct declaration",
-                                st->toString().toBasicString()),
-                            st);
+                        throw EvaluatorError(u8"UnexpectedStatementInStructError",
+                                             std::format("Unexpected statement `{}` in struct declaration",
+                                                         st->toString().toBasicString()),
+                                             st);
                     }
                     evalStatement(st, defContext); // function def st
                 }
 
-                AccessModifier am =
-                    (stDef->isPublic ? AccessModifier::PublicConst :
-                                       AccessModifier::Const);
+                AccessModifier am = (stDef->isPublic ? AccessModifier::PublicConst : AccessModifier::Const);
                 TypeInfo type(stDef->name, true); // register type name
                 ctx->def(stDef->name,
                          ValueType::StructType,
                          am,
-                         std::make_shared<Object>(
-                             StructType(type, defContext, fields)));
+                         std::make_shared<Object>(StructType(type, defContext, fields)));
                 return StatementResult::normal();
             }
 
             case InterfaceDefSt: {
-                auto ifd =
-                    std::dynamic_pointer_cast<Ast::InterfaceDefAst>(stmt);
+                auto ifd = std::dynamic_pointer_cast<Ast::InterfaceDefAst>(stmt);
                 assert(ifd != nullptr);
 
                 const FString &interfaceName = ifd->name;
@@ -1147,18 +1129,14 @@ namespace Fig
                 {
                     throw EvaluatorError(
                         u8"RedeclarationError",
-                        std::format(
-                            "Interface `{}` already declared in this scope",
-                            interfaceName.toBasicString()),
+                        std::format("Interface `{}` already declared in this scope", interfaceName.toBasicString()),
                         ifd);
                 }
                 TypeInfo type(interfaceName, true); // register interface
                 ctx->def(interfaceName,
                          type,
-                         (ifd->isPublic ? AccessModifier::PublicConst :
-                                          AccessModifier::Const),
-                         std::make_shared<Object>(
-                             InterfaceType(type, ifd->methods)));
+                         (ifd->isPublic ? AccessModifier::PublicConst : AccessModifier::Const),
+                         std::make_shared<Object>(InterfaceType(type, ifd->methods)));
                 return StatementResult::normal();
             }
 
@@ -1170,28 +1148,23 @@ namespace Fig
                 TypeInfo interfaceType(ip->interfaceName);
                 if (ctx->hasImplRegisted(structType, interfaceType))
                 {
-                    throw EvaluatorError(
-                        u8"DuplicateImplError",
-                        std::format("Duplicate implement `{}` for `{}`",
-                                    interfaceType.toString().toBasicString(),
-                                    structType.toString().toBasicString()),
-                        ip);
+                    throw EvaluatorError(u8"DuplicateImplError",
+                                         std::format("Duplicate implement `{}` for `{}`",
+                                                     interfaceType.toString().toBasicString(),
+                                                     structType.toString().toBasicString()),
+                                         ip);
                 }
                 if (!ctx->contains(ip->interfaceName))
                 {
-                    throw EvaluatorError(
-                        u8"InterfaceNotFoundError",
-                        std::format("Interface '{}' not found",
-                                    ip->interfaceName.toBasicString()),
-                        ip);
+                    throw EvaluatorError(u8"InterfaceNotFoundError",
+                                         std::format("Interface '{}' not found", ip->interfaceName.toBasicString()),
+                                         ip);
                 }
                 if (!ctx->contains(ip->structName))
                 {
-                    throw EvaluatorError(
-                        u8"StructNotFoundError",
-                        std::format("Struct '{}' not found",
-                                    ip->structName.toBasicString()),
-                        ip);
+                    throw EvaluatorError(u8"StructNotFoundError",
+                                         std::format("Struct '{}' not found", ip->structName.toBasicString()),
+                                         ip);
                 }
                 auto interfaceSlot = ctx->get(ip->interfaceName);
                 auto structSlot = ctx->get(ip->structName);
@@ -1206,16 +1179,14 @@ namespace Fig
                 {
                     throw EvaluatorError(
                         u8"NotAInterfaceError",
-                        std::format("Variable `{}` is not a interface",
-                                    ip->interfaceName.toBasicString()),
+                        std::format("Variable `{}` is not a interface", ip->interfaceName.toBasicString()),
                         ip);
                 }
                 if (!structTypeObj->is<StructType>())
                 {
                     throw EvaluatorError(
                         u8"NotAStructType",
-                        std::format("Variable `{}` is not a struct type",
-                                    ip->structName.toBasicString()),
+                        std::format("Variable `{}` is not a struct type", ip->structName.toBasicString()),
                         ip);
                 }
                 auto &implementMethods = ip->methods;
@@ -1229,13 +1200,11 @@ namespace Fig
                 {
                     if (ifaceMethods.contains(m.name))
                     {
-                        throw EvaluatorError(
-                            u8"InterfaceDuplicateMethodError",
-                            std::format(
-                                "Interface '{}' has duplicate method '{}'",
-                                interfaceType.toString().toBasicString(),
-                                m.name.toBasicString()),
-                            ip);
+                        throw EvaluatorError(u8"InterfaceDuplicateMethodError",
+                                             std::format("Interface '{}' has duplicate method '{}'",
+                                                         interfaceType.toString().toBasicString(),
+                                                         m.name.toBasicString()),
+                                             ip);
                     }
                     ifaceMethods[m.name] = m;
                 }
@@ -1249,24 +1218,20 @@ namespace Fig
                     // ---- redundant impl ----
                     if (!ifaceMethods.contains(name))
                     {
-                        throw EvaluatorError(
-                            u8"RedundantImplementationError",
-                            std::format(
-                                "Struct '{}' implements extra method '{}' "
-                                "which is not required by interface '{}'",
-                                structType.toString().toBasicString(),
-                                name.toBasicString(),
-                                interfaceType.toString().toBasicString()),
-                            ip);
+                        throw EvaluatorError(u8"RedundantImplementationError",
+                                             std::format("Struct '{}' implements extra method '{}' "
+                                                         "which is not required by interface '{}'",
+                                                         structType.toString().toBasicString(),
+                                                         name.toBasicString(),
+                                                         interfaceType.toString().toBasicString()),
+                                             ip);
                     }
 
                     if (implemented.contains(name))
                     {
-                        throw EvaluatorError(
-                            u8"DuplicateImplementMethodError",
-                            std::format("Duplicate implement method '{}'",
-                                        name.toBasicString()),
-                            ip);
+                        throw EvaluatorError(u8"DuplicateImplementMethodError",
+                                             std::format("Duplicate implement method '{}'", name.toBasicString()),
+                                             ip);
                     }
 
                     auto &ifMethod = ifaceMethods[name];
@@ -1274,37 +1239,30 @@ namespace Fig
                     // ---- signature check ----
                     if (!isInterfaceSignatureMatch(implMethod, ifMethod))
                     {
-                        throw EvaluatorError(
-                            u8"InterfaceSignatureMismatch",
-                            std::format(
-                                "Interface method '{}({})' signature mismatch with "
-                                "implementation '{}({})'",
-                                ifMethod.name.toBasicString(),
-                                ifMethod.paras.toString().toBasicString(),
-                                implMethod.name.toBasicString(),
-                                implMethod.paras.toString().toBasicString()),
-                            ip);
+                        throw EvaluatorError(u8"InterfaceSignatureMismatch",
+                                             std::format("Interface method '{}({})' signature mismatch with "
+                                                         "implementation '{}({})'",
+                                                         ifMethod.name.toBasicString(),
+                                                         ifMethod.paras.toString().toBasicString(),
+                                                         implMethod.name.toBasicString(),
+                                                         implMethod.paras.toString().toBasicString()),
+                                             ip);
                     }
 
                     if (ctx->hasMethodImplemented(structType, name))
                     {
-                        throw EvaluatorError(
-                            u8"DuplicateImplementMethodError",
-                            std::format(
-                                "Method '{}' already implemented by another interface "
-                                "for struct '{}'",
-                                name.toBasicString(),
-                                structType.toString().toBasicString()),
-                            ip);
+                        throw EvaluatorError(u8"DuplicateImplementMethodError",
+                                             std::format("Method '{}' already implemented by another interface "
+                                                         "for struct '{}'",
+                                                         name.toBasicString(),
+                                                         structType.toString().toBasicString()),
+                                             ip);
                     }
 
                     implemented.insert(name);
 
                     record.implMethods[name] =
-                        Function(implMethod.paras,
-                                 TypeInfo(ifMethod.returnType),
-                                 implMethod.body,
-                                 ctx);
+                        Function(implMethod.paras, TypeInfo(ifMethod.returnType), implMethod.body, ctx);
                 }
 
                 for (auto &m : interface.methods)
@@ -1313,15 +1271,13 @@ namespace Fig
 
                     if (m.hasDefaultBody()) continue;
 
-                    throw EvaluatorError(
-                        u8"MissingImplementationError",
-                        std::format(
-                            "Struct '{}' does not implement required interface method '{}' "
-                            "and interface '{}' provides no default implementation",
-                            structType.toString().toBasicString(),
-                            m.name.toBasicString(),
-                            interfaceType.toString().toBasicString()),
-                        ip);
+                    throw EvaluatorError(u8"MissingImplementationError",
+                                         std::format("Struct '{}' does not implement required interface method '{}' "
+                                                     "and interface '{}' provides no default implementation",
+                                                     structType.toString().toBasicString(),
+                                                     m.name.toBasicString(),
+                                                     interfaceType.toString().toBasicString()),
+                                         ip);
                 }
 
                 ctx->setImplRecord(structType, interfaceType, record);
@@ -1335,14 +1291,10 @@ namespace Fig
                 {
                     throw EvaluatorError(
                         u8"TypeError",
-                        std::format("Condition must be boolean, but got '{}'",
-                                    prettyType(condVal).toBasicString()),
+                        std::format("Condition must be boolean, but got '{}'", prettyType(condVal).toBasicString()),
                         ifSt->condition);
                 }
-                if (condVal->as<ValueType::BoolClass>())
-                {
-                    return evalBlockStatement(ifSt->body, ctx);
-                }
+                if (condVal->as<ValueType::BoolClass>()) { return evalBlockStatement(ifSt->body, ctx); }
                 // else
                 for (const auto &elif : ifSt->elifs)
                 {
@@ -1351,20 +1303,12 @@ namespace Fig
                     {
                         throw EvaluatorError(
                             u8"TypeError",
-                            std::format(
-                                "Condition must be boolean, but got '{}'",
-                                prettyType(condVal).toBasicString()),
+                            std::format("Condition must be boolean, but got '{}'", prettyType(condVal).toBasicString()),
                             ifSt->condition);
                     }
-                    if (elifCondVal->as<ValueType::BoolClass>())
-                    {
-                        return evalBlockStatement(elif->body, ctx);
-                    }
+                    if (elifCondVal->as<ValueType::BoolClass>()) { return evalBlockStatement(elif->body, ctx); }
                 }
-                if (ifSt->els)
-                {
-                    return evalBlockStatement(ifSt->els->body, ctx);
-                }
+                if (ifSt->els) { return evalBlockStatement(ifSt->els->body, ctx); }
                 return StatementResult::normal();
             };
             case WhileSt: {
@@ -1376,19 +1320,14 @@ namespace Fig
                     {
                         throw EvaluatorError(
                             u8"TypeError",
-                            std::format(
-                                "Condition must be boolean, but got '{}'",
-                                prettyType(condVal).toBasicString()),
+                            std::format("Condition must be boolean, but got '{}'", prettyType(condVal).toBasicString()),
                             whileSt->condition);
                     }
                     if (!condVal->as<ValueType::BoolClass>()) { break; }
                     ContextPtr loopContext = std::make_shared<Context>(
-                        FString(std::format("<While {}:{}>",
-                                            whileSt->getAAI().line,
-                                            whileSt->getAAI().column)),
+                        FString(std::format("<While {}:{}>", whileSt->getAAI().line, whileSt->getAAI().column)),
                         ctx); // every loop has its own context
-                    StatementResult sr =
-                        evalBlockStatement(whileSt->body, loopContext);
+                    StatementResult sr = evalBlockStatement(whileSt->body, loopContext);
                     if (sr.shouldReturn()) { return sr; }
                     if (sr.shouldBreak()) { break; }
                     if (sr.shouldContinue()) { continue; }
@@ -1398,9 +1337,7 @@ namespace Fig
             case ForSt: {
                 auto forSt = std::dynamic_pointer_cast<Ast::ForSt>(stmt);
                 ContextPtr loopContext = std::make_shared<Context>(
-                    FString(std::format("<For {}:{}>",
-                                        forSt->getAAI().line,
-                                        forSt->getAAI().column)),
+                    FString(std::format("<For {}:{}>", forSt->getAAI().line, forSt->getAAI().column)),
                     ctx); // for loop has its own context
 
                 evalStatement(forSt->initSt,
@@ -1415,21 +1352,16 @@ namespace Fig
                     {
                         throw EvaluatorError(
                             u8"TypeError",
-                            std::format(
-                                "Condition must be boolean, but got '{}'",
-                                prettyType(condVal).toBasicString()),
+                            std::format("Condition must be boolean, but got '{}'", prettyType(condVal).toBasicString()),
                             forSt->condition);
                     }
                     if (!condVal->as<ValueType::BoolClass>()) { break; }
                     iteration++;
                     ContextPtr iterationContext = std::make_shared<Context>(
-                        FString(std::format("<For {}:{}, Iteration {}>",
-                                            forSt->getAAI().line,
-                                            forSt->getAAI().column,
-                                            iteration)),
+                        FString(std::format(
+                            "<For {}:{}, Iteration {}>", forSt->getAAI().line, forSt->getAAI().column, iteration)),
                         loopContext); // every loop has its own context
-                    StatementResult sr =
-                        evalBlockStatement(forSt->body, iterationContext);
+                    StatementResult sr = evalBlockStatement(forSt->body, iterationContext);
                     if (sr.shouldReturn()) { return sr; }
                     if (sr.shouldBreak()) { break; }
                     if (sr.shouldContinue())
@@ -1437,9 +1369,8 @@ namespace Fig
                         // continue to next iteration
                         continue;
                     }
-                    evalStatement(
-                        forSt->incrementSt,
-                        loopContext); // ignore increment statement result
+                    evalStatement(forSt->incrementSt,
+                                  loopContext); // ignore increment statement result
                 }
                 return StatementResult::normal();
             }
@@ -1449,10 +1380,7 @@ namespace Fig
                 assert(tryst != nullptr);
 
                 ContextPtr tryCtx = std::make_shared<Context>(
-                    FString(std::format("<Try at {}:{}>",
-                                        tryst->getAAI().line,
-                                        tryst->getAAI().column)),
-                    ctx);
+                    FString(std::format("<Try at {}:{}>", tryst->getAAI().line, tryst->getAAI().column)), ctx);
                 StatementResult sr = StatementResult::normal();
                 for (auto &stmt : tryst->body->stmts)
                 {
@@ -1463,20 +1391,14 @@ namespace Fig
                 for (auto &cat : tryst->catches)
                 {
                     const FString &errVarName = cat.errVarName;
-                    TypeInfo errVarType =
-                        (cat.hasType ? TypeInfo(cat.errVarType) :
-                                       ValueType::Any);
+                    TypeInfo errVarType = (cat.hasType ? TypeInfo(cat.errVarType) : ValueType::Any);
                     if (isTypeMatch(errVarType, sr.result, ctx))
                     {
                         ContextPtr catchCtx = std::make_shared<Context>(
-                            FString(std::format("<Catch at {}:{}>",
-                                                cat.body->getAAI().line,
-                                                cat.body->getAAI().column)),
+                            FString(
+                                std::format("<Catch at {}:{}>", cat.body->getAAI().line, cat.body->getAAI().column)),
                             ctx);
-                        catchCtx->def(errVarName,
-                                      errVarType,
-                                      AccessModifier::Normal,
-                                      sr.result);
+                        catchCtx->def(errVarName, errVarType, AccessModifier::Normal, sr.result);
                         sr = evalBlockStatement(cat.body, catchCtx);
                         catched = true;
                         break;
@@ -1484,16 +1406,11 @@ namespace Fig
                 }
                 if (!catched)
                 {
-                    throw EvaluatorError(
-                        u8"UncaughtExceptionError",
-                        std::format("Uncaught exception: {}",
-                                    sr.result->toString().toBasicString()),
-                        tryst);
+                    throw EvaluatorError(u8"UncaughtExceptionError",
+                                         std::format("Uncaught exception: {}", sr.result->toString().toBasicString()),
+                                         tryst);
                 }
-                if (tryst->finallyBlock)
-                {
-                    sr = evalBlockStatement(tryst->finallyBlock, ctx);
-                }
+                if (tryst->finallyBlock) { sr = evalBlockStatement(tryst->finallyBlock, ctx); }
                 return sr;
             }
 
@@ -1504,8 +1421,7 @@ namespace Fig
                 ObjectPtr value = eval(ts->value, ctx);
                 if (value->is<ValueType::NullClass>())
                 {
-                    throw EvaluatorError(
-                        u8"TypeError", u8"Why did you throw a null?", ts);
+                    throw EvaluatorError(u8"TypeError", u8"Why did you throw a null?", ts);
                 }
                 return StatementResult::errorFlow(value);
             }
@@ -1514,25 +1430,19 @@ namespace Fig
                 auto returnSt = std::dynamic_pointer_cast<Ast::ReturnSt>(stmt);
                 assert(returnSt != nullptr);
 
-                ObjectPtr returnValue =
-                    Object::getNullInstance(); // default is null
-                if (returnSt->retValue)
-                    returnValue = eval(returnSt->retValue, ctx);
+                ObjectPtr returnValue = Object::getNullInstance(); // default is null
+                if (returnSt->retValue) returnValue = eval(returnSt->retValue, ctx);
                 return StatementResult::returnFlow(returnValue);
             }
 
             case BreakSt: {
                 if (!ctx->parent)
                 {
-                    throw EvaluatorError(u8"BreakOutsideLoopError",
-                                         u8"`break` statement outside loop",
-                                         stmt);
+                    throw EvaluatorError(u8"BreakOutsideLoopError", u8"`break` statement outside loop", stmt);
                 }
                 if (!ctx->isInLoopContext())
                 {
-                    throw EvaluatorError(u8"BreakOutsideLoopError",
-                                         u8"`break` statement outside loop",
-                                         stmt);
+                    throw EvaluatorError(u8"BreakOutsideLoopError", u8"`break` statement outside loop", stmt);
                 }
                 return StatementResult::breakFlow();
             }
@@ -1540,47 +1450,38 @@ namespace Fig
             case ContinueSt: {
                 if (!ctx->parent)
                 {
-                    throw EvaluatorError(u8"ContinueOutsideLoopError",
-                                         u8"`continue` statement outside loop",
-                                         stmt);
+                    throw EvaluatorError(u8"ContinueOutsideLoopError", u8"`continue` statement outside loop", stmt);
                 }
                 if (!ctx->isInLoopContext())
                 {
-                    throw EvaluatorError(u8"ContinueOutsideLoopError",
-                                         u8"`continue` statement outside loop",
-                                         stmt);
+                    throw EvaluatorError(u8"ContinueOutsideLoopError", u8"`continue` statement outside loop", stmt);
                 }
                 return StatementResult::continueFlow();
             }
 
             case ExpressionStmt: {
-                auto exprStmt =
-                    std::dynamic_pointer_cast<Ast::ExpressionStmtAst>(stmt);
+                auto exprStmt = std::dynamic_pointer_cast<Ast::ExpressionStmtAst>(stmt);
                 assert(exprStmt != nullptr);
 
                 return StatementResult::normal(eval(exprStmt->exp, ctx));
             }
 
             default:
-                throw RuntimeError(FString(
-                    std::format("Feature stmt {} unsupported yet",
-                                magic_enum::enum_name(stmt->getType()))));
+                throw RuntimeError(
+                    FString(std::format("Feature stmt {} unsupported yet", magic_enum::enum_name(stmt->getType()))));
         }
     }
 
-    std::filesystem::path
-    Evaluator::resolveModulePath(const std::vector<FString> &pathVec)
+    std::filesystem::path Evaluator::resolveModulePath(const std::vector<FString> &pathVec)
     {
         namespace fs = std::filesystem;
 
-        static const std::vector<fs::path> defaultLibraryPath{"Library",
-                                                              "Library/fpm"};
+        static const std::vector<fs::path> defaultLibraryPath{"Library", "Library/fpm"};
 
         std::vector<fs::path> pathToFind(defaultLibraryPath);
         pathToFind.insert(
             pathToFind.begin(),
-            fs::path(this->sourcePath.toBasicString())
-                .parent_path()); // first search module at the source file path
+            fs::path(this->sourcePath.toBasicString()).parent_path()); // first search module at the source file path
 
         fs::path path;
 
@@ -1595,8 +1496,7 @@ namespace Fig
         bool found = false;
         for (auto &parentFolder : pathToFind)
         {
-            modPath = parentFolder
-                      / FString(modPathStrTop + u8".fig").toBasicString();
+            modPath = parentFolder / FString(modPathStrTop + u8".fig").toBasicString();
             if (fs::exists(modPath))
             {
                 path = modPath;
@@ -1608,20 +1508,16 @@ namespace Fig
                 modPath = parentFolder / modPathStrTop.toBasicString();
                 if (fs::is_directory(modPath)) // comp is a directory
                 {
-                    modPath =
-                        modPath
-                        / FString(modPathStrTop + u8".fig").toBasicString();
+                    modPath = modPath / FString(modPathStrTop + u8".fig").toBasicString();
                     /*
                         if module name is a directory, we require [module
                        name].fig at the directory
                     */
                     if (!fs::exists(modPath))
                     {
-                        throw RuntimeError(FString(
-                            std::format("requires module file, {}\\{}",
-                                        modPathStrTop.toBasicString(),
-                                        FString(modPathStrTop + u8".fig")
-                                            .toBasicString())));
+                        throw RuntimeError(FString(std::format("requires module file, {}\\{}",
+                                                               modPathStrTop.toBasicString(),
+                                                               FString(modPathStrTop + u8".fig").toBasicString())));
                     }
                     found = true;
                     path = modPath;
@@ -1631,8 +1527,7 @@ namespace Fig
         }
 
         if (!found)
-            throw RuntimeError(FString(std::format(
-                "Could not find module `{}`", modPathStrTop.toBasicString())));
+            throw RuntimeError(FString(std::format("Could not find module `{}`", modPathStrTop.toBasicString())));
 
         bool found2 = false;
 
@@ -1645,8 +1540,7 @@ namespace Fig
             {
                 if (i != pathVec.size() - 1)
                     throw RuntimeError(FString(std::format(
-                        "expects {} as parent directory and find next module, but got a file",
-                        next.toBasicString())));
+                        "expects {} as parent directory and find next module, but got a file", next.toBasicString())));
                 // it's the last module
                 found2 = true;
                 path = modPath;
@@ -1655,8 +1549,7 @@ namespace Fig
             // `next` is a folder
             modPath = modPath.parent_path() / next.toBasicString();
             if (!fs::exists(modPath))
-                throw RuntimeError(FString(std::format(
-                    "Could not find module `{}`", next.toBasicString())));
+                throw RuntimeError(FString(std::format("Could not find module `{}`", next.toBasicString())));
             if (i == pathVec.size() - 1)
             {
                 // `next` is the last module
@@ -1664,8 +1557,7 @@ namespace Fig
                 if (!fs::exists(modPath))
                 {
                     throw RuntimeError(FString(std::format(
-                        "expects {} as parent directory and find next module, but got a file",
-                        next.toBasicString())));
+                        "expects {} as parent directory and find next module, but got a file", next.toBasicString())));
                 }
                 found2 = true;
                 path = modPath;
@@ -1673,8 +1565,7 @@ namespace Fig
         }
 
         if (!found2 && !fs::exists(modPath))
-            throw RuntimeError(FString(std::format(
-                "Could not find module `{}`", pathVec.end()->toBasicString())));
+            throw RuntimeError(FString(std::format("Could not find module `{}`", pathVec.end()->toBasicString())));
 
         return path;
     }
@@ -1684,8 +1575,7 @@ namespace Fig
         std::ifstream file(path);
         assert(file.is_open());
 
-        std::string source((std::istreambuf_iterator<char>(file)),
-                           std::istreambuf_iterator<char>());
+        std::string source((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
         file.close();
 
         Lexer lexer((FString(source)));
@@ -1699,8 +1589,7 @@ namespace Fig
         Evaluator evaluator;
         evaluator.SetSourcePath(FString(path.string()));
 
-        ContextPtr modctx = std::make_shared<Context>(
-            FString(std::format("<Module at {}>", path.string())), nullptr);
+        ContextPtr modctx = std::make_shared<Context>(FString(std::format("<Module at {}>", path.string())), nullptr);
 
         evaluator.SetGlobalContext(modctx);
         evaluator.RegisterBuiltinsValue();
@@ -1713,8 +1602,7 @@ namespace Fig
     {
         const std::vector<FString> &pathVec = i->path;
 
-        const FString &modName =
-            pathVec.at(pathVec.size() - 1); // pathVec at least has 1 element
+        const FString &modName = pathVec.at(pathVec.size() - 1); // pathVec at least has 1 element
         if (modName == u8"_builtins")
         {
             RegisterBuiltins();
@@ -1727,15 +1615,11 @@ namespace Fig
 
         if (ctx->containsInThisScope(modName))
         {
-            throw EvaluatorError(u8"RedeclarationError",
-                                 std::format("{} has already been declared.",
-                                             modName.toBasicString()),
-                                 i);
+            throw EvaluatorError(
+                u8"RedeclarationError", std::format("{} has already been declared.", modName.toBasicString()), i);
         }
-        ctx->def(modName,
-                 ValueType::Module,
-                 AccessModifier::PublicConst,
-                 std::make_shared<Object>(Module(modName, modCtx)));
+        ctx->def(
+            modName, ValueType::Module, AccessModifier::PublicConst, std::make_shared<Object>(Module(modName, modCtx)));
         return StatementResult::normal();
     }
 
@@ -1753,17 +1637,14 @@ namespace Fig
             else
             {
                 // statement
-                Ast::Statement stmt =
-                    std::dynamic_pointer_cast<Ast::StatementAst>(ast);
+                Ast::Statement stmt = std::dynamic_pointer_cast<Ast::StatementAst>(ast);
                 assert(stmt != nullptr);
                 sr = evalStatement(stmt, global);
                 if (sr.isError())
                 {
-                    throw EvaluatorError(
-                        u8"UncaughtExceptionError",
-                        std::format("Uncaught exception: {}",
-                                    sr.result->toString().toBasicString()),
-                        stmt);
+                    throw EvaluatorError(u8"UncaughtExceptionError",
+                                         std::format("Uncaught exception: {}", sr.result->toString().toBasicString()),
+                                         stmt);
                 }
                 if (!sr.isNormal()) { return sr; }
             }

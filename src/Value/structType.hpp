@@ -37,9 +37,11 @@ namespace Fig
         ContextPtr defContext; // 定义时的上下文
         std::vector<Field> fields;
 
+        bool builtin = false;
+
         // ===== Constructors =====
-        StructType(TypeInfo _type, ContextPtr _defContext, std::vector<Field> _fields) :
-            type(std::move(_type)), defContext(std::move(_defContext)), fields(std::move(_fields)) {}
+        StructType(TypeInfo _type, ContextPtr _defContext, std::vector<Field> _fields, bool _builtin = false) :
+            type(std::move(_type)), defContext(std::move(_defContext)), fields(std::move(_fields)), builtin(_builtin) {}
 
         StructType(const StructType &other) = default;
         StructType(StructType &&) noexcept = default;

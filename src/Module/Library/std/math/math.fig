@@ -87,7 +87,7 @@ public func fmod(x, y)
 
 public func frexp(x) -> List
 {
-    // return List {mantissa, exponent
+    // return List {mantissa, exponent}
     return __fmath_frexp(x);
 }
 

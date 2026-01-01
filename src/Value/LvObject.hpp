@@ -53,7 +53,7 @@ namespace Fig
                 if (numIndex >= list.size())
                     throw RuntimeError(FString(
                         std::format("Index {} out of range {}", numIndex, value->toString().toBasicString())));
-                return list.at(numIndex);
+                return list.at(numIndex).value;
             }
             else if (kind == Kind::MapElement) // map
             {

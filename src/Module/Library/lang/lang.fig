@@ -1,0 +1,42 @@
+/*
+DO NOT IMPORT THIS FILE
+DO NOT IMPORT THIS FILE
+DO NOT IMPORT THIS FILE
+
+Module `lang`
+
+Visible to IDEs and documentation tools,
+NOT importable, NOT executable as a real module.
+
+Library/lang/lang.fig
+
+Copyright © 2025 PuqiAR. All rights reserved.
+*/
+
+
+// values
+
+var null: Null;
+
+var true: Bool;
+var false: Bool;
+
+
+// Error interface
+
+public interface Error
+{
+    toString() -> String;
+    getErrorClass() -> String;
+    getErrorMessage() -> String;
+}
+
+public struct Any {}
+public struct Int {}
+public struct Null {}
+public struct String {}
+public struct Bool {}
+public struct Double {}
+public struct Function {}
+public struct List {}
+public struct Map {}

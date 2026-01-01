@@ -1,0 +1,94 @@
+/*
+Module `_builtins`
+
+This module represents Fig builtin runtime bindings.
+
+Visible to IDEs and documentation tools,
+NOT importable, NOT executable as a real module.
+
+Library/_builtins/_builtins.fig
+
+Importing `_builtins` in real programs loads native implementations,
+not this file. This file only serves as documentation / IDE reference.
+
+Copyright © 2025 PuqiAR. All rights reserved.
+*/
+
+// =======================
+// stdout
+// =======================
+
+func __fstdout_print(values ...) -> Int;
+
+func __fstdout_println(values ...) -> Int;
+
+
+// =======================
+// stdin
+// =======================
+
+func __fstdin_read() -> String;
+
+func __fstdin_readln() -> String;
+
+
+// =======================
+// value utilities
+// =======================
+
+func __fvalue_type(value: Any) -> String;
+
+func __fvalue_int_parse(str: String) -> Int;
+func __fvalue_int_from(value: Any) -> Int;
+
+func __fvalue_double_parse(str: String) -> Double;
+func __fvalue_double_from(value: Any) -> Double;
+
+func __fvalue_string_from(value: Any) -> String;
+
+
+// =======================
+// math
+// =======================
+
+func __fmath_acos(x: Any) -> Double;
+func __fmath_acosh(x: Any) -> Double;
+func __fmath_asin(x: Any) -> Double;
+func __fmath_asinh(x: Any) -> Double;
+func __fmath_atan(x: Any) -> Double;
+func __fmath_atan2(y: Any, x: Any) -> Double;
+func __fmath_atanh(x: Any) -> Double;
+
+func __fmath_ceil(x: Any) -> Double;
+func __fmath_cos(x: Any) -> Double;
+func __fmath_cosh(x: Any) -> Double;
+
+func __fmath_exp(x: Any) -> Double;
+func __fmath_expm1(x: Any) -> Double;
+
+func __fmath_fabs(x: Any) -> Double;
+func __fmath_floor(x: Any) -> Double;
+func __fmath_fmod(x: Any, y: Any) -> Double;
+
+// returns List[Double, Int]
+func __fmath_frexp(x: Any) -> List;
+
+func __fmath_gcd(a: Int, b: Int) -> Int;
+func __fmath_hypot(a: Any, b: Any) -> Double;
+
+func __fmath_isequal(a: Any, b: Any) -> Bool;
+
+func __fmath_log(x: Any) -> Double;
+func __fmath_log10(x: Any) -> Double;
+func __fmath_log1p(x: Any) -> Double;
+func __fmath_log2(x: Any) -> Double;
+
+func __fmath_sin(x: Any) -> Double;
+func __fmath_sinh(x: Any) -> Double;
+
+func __fmath_sqrt(x: Any) -> Double;
+
+func __fmath_tan(x: Any) -> Double;
+func __fmath_tanh(x: Any) -> Double;
+
+func __fmath_trunc(x: Any) -> Double;

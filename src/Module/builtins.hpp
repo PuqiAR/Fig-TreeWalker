@@ -35,22 +35,24 @@ namespace Fig
             {u8"Error",
              std::make_shared<Object>(InterfaceType(
                  ErrorInterfaceTypeInfo,
-                 {Ast::InterfaceMethod(u8"toString",
-                                       Ast::FunctionParameters({}, {}),
-                                       u8"String",
-                                       nullptr),
-                  Ast::InterfaceMethod(u8"getErrorClass",
-                                       Ast::FunctionParameters({}, {}),
-                                       u8"String",
-                                       nullptr),
-                  Ast::InterfaceMethod(u8"getErrorMessage",
-                                       Ast::FunctionParameters({}, {}),
-                                       u8"String",
-                                       nullptr)}))},
+                 {Ast::InterfaceMethod(u8"toString", Ast::FunctionParameters({}, {}), u8"String", nullptr),
+                  Ast::InterfaceMethod(u8"getErrorClass", Ast::FunctionParameters({}, {}), u8"String", nullptr),
+                  Ast::InterfaceMethod(u8"getErrorMessage", Ast::FunctionParameters({}, {}), u8"String", nullptr)}))},
+
+            {u8"Any", std::make_shared<Object>(StructType(ValueType::Any, nullptr, {}, true))},
+            {u8"Int", std::make_shared<Object>(StructType(ValueType::Int, nullptr, {}, true))},
+            {u8"Null", std::make_shared<Object>(StructType(ValueType::Null, nullptr, {}, true))},
+            {u8"String", std::make_shared<Object>(StructType(ValueType::String, nullptr, {}, true))},
+            {u8"Bool", std::make_shared<Object>(StructType(ValueType::Bool, nullptr, {}, true))},
+            {u8"Double", std::make_shared<Object>(StructType(ValueType::Double, nullptr, {}, true))},
+            {u8"Function", std::make_shared<Object>(StructType(ValueType::Function, nullptr, {}, true))},
+            {u8"List", std::make_shared<Object>(StructType(ValueType::List, nullptr, {}, true))},
+            {u8"Map", std::make_shared<Object>(StructType(ValueType::Map, nullptr, {}, true))},
+            // Type `StructType` `StructInstance` `Module` `InterfaceType`
+            // Not allowed to call constructor!
         };
 
-        using BuiltinFunction =
-            std::function<ObjectPtr(const std::vector<ObjectPtr> &)>;
+        using BuiltinFunction = std::function<ObjectPtr(const std::vector<ObjectPtr> &)>;
 
         const std::unordered_map<FString, int> builtinFunctionArgCounts = {
             {u8"__fstdout_print", -1},   // variadic
@@ -98,41 +100,30 @@ namespace Fig
         const std::unordered_map<FString, BuiltinFunction> builtinFunctions{
             {u8"__fstdout_print",
              [](const std::vector<ObjectPtr> &args) -> ObjectPtr {
-                 for (auto arg : args)
-                 {
-                     std::print("{}", arg->toStringIO().toBasicString());
-                 }
-                 return std::make_shared<Object>(
-                     ValueType::IntClass(args.size()));
+                 for (auto arg : args) { std::print("{}", arg->toStringIO().toBasicString()); }
+                 return std::make_shared<Object>(ValueType::IntClass(args.size()));
              }},
             {u8"__fstdout_println",
              [](const std::vector<ObjectPtr> &args) -> ObjectPtr {
-                 for (auto arg : args)
-                 {
-                     std::print("{}", arg->toStringIO().toBasicString());
-                 }
+                 for (auto arg : args) { std::print("{}", arg->toStringIO().toBasicString()); }
                  std::print("\n");
-                 return std::make_shared<Object>(
-                     ValueType::IntClass(args.size()));
+                 return std::make_shared<Object>(ValueType::IntClass(args.size()));
              }},
             {u8"__fstdin_read",
              [](const std::vector<ObjectPtr> &args) -> ObjectPtr {
                  std::string input;
                  std::cin >> input;
-                 return std::make_shared<Object>(
-                     FString::fromBasicString(input));
+                 return std::make_shared<Object>(FString::fromBasicString(input));
              }},
             {u8"__fstdin_readln",
              [](const std::vector<ObjectPtr> &args) -> ObjectPtr {
                  std::string line;
                  std::getline(std::cin, line);
-                 return std::make_shared<Object>(
-                     FString::fromBasicString(line));
+                 return std::make_shared<Object>(FString::fromBasicString(line));
              }},
             {u8"__fvalue_type",
              [](const std::vector<ObjectPtr> &args) -> ObjectPtr {
-                 return std::make_shared<Object>(
-                     args[0]->getTypeInfo().toString());
+                 return std::make_shared<Object>(args[0]->getTypeInfo().toString());
              }},
             {u8"__fvalue_int_parse",
              [](const std::vector<ObjectPtr> &args) -> ObjectPtr {
@@ -144,9 +135,7 @@ namespace Fig
                  }
                  catch (...)
                  {
-                     throw RuntimeError(
-                         FString(std::format("Invalid int string for parsing",
-                                             str.toBasicString())));
+                     throw RuntimeError(FString(std::format("Invalid int string for parsing", str.toBasicString())));
                  }
              }},
             {u8"__fvalue_int_from",
@@ -155,20 +144,17 @@ namespace Fig
                  if (val->is<ValueType::DoubleClass>())
                  {
                      return std::make_shared<Object>(
-                         static_cast<ValueType::IntClass>(
-                             val->as<ValueType::DoubleClass>()));
+                         static_cast<ValueType::IntClass>(val->as<ValueType::DoubleClass>()));
                  }
                  else if (val->is<ValueType::BoolClass>())
                  {
                      return std::make_shared<Object>(
-                         static_cast<ValueType::IntClass>(
-                             val->as<ValueType::BoolClass>() ? 1 : 0));
+                         static_cast<ValueType::IntClass>(val->as<ValueType::BoolClass>() ? 1 : 0));
                  }
                  else
                  {
-                     throw RuntimeError(FString(std::format(
-                         "Type '{}' cannot be converted to int",
-                         val->getTypeInfo().toString().toBasicString())));
+                     throw RuntimeError(FString(std::format("Type '{}' cannot be converted to int",
+                                                            val->getTypeInfo().toString().toBasicString())));
                  }
              }},
             {u8"__fvalue_double_parse",
@@ -176,16 +162,12 @@ namespace Fig
                  FString str = args[0]->as<ValueType::StringClass>();
                  try
                  {
-                     ValueType::DoubleClass val =
-                         std::stod(str.toBasicString());
-                     return std::make_shared<Object>(
-                         ValueType::DoubleClass(val));
+                     ValueType::DoubleClass val = std::stod(str.toBasicString());
+                     return std::make_shared<Object>(ValueType::DoubleClass(val));
                  }
                  catch (...)
                  {
-                     throw RuntimeError(FString(
-                         std::format("Invalid double string for parsing",
-                                     str.toBasicString())));
+                     throw RuntimeError(FString(std::format("Invalid double string for parsing", str.toBasicString())));
                  }
              }},
             {u8"__fvalue_double_from",
@@ -194,19 +176,17 @@ namespace Fig
                  if (val->is<ValueType::IntClass>())
                  {
                      return std::make_shared<Object>(
-                         static_cast<ValueType::DoubleClass>(
-                             val->as<ValueType::IntClass>()));
+                         static_cast<ValueType::DoubleClass>(val->as<ValueType::IntClass>()));
                  }
                  else if (val->is<ValueType::BoolClass>())
                  {
-                     return std::make_shared<Object>(ValueType::DoubleClass(
-                         val->as<ValueType::BoolClass>() ? 1.0 : 0.0));
+                     return std::make_shared<Object>(
+                         ValueType::DoubleClass(val->as<ValueType::BoolClass>() ? 1.0 : 0.0));
                  }
                  else
                  {
-                     throw RuntimeError(FString(std::format(
-                         "Type '{}' cannot be converted to double",
-                         val->getTypeInfo().toString().toBasicString())));
+                     throw RuntimeError(FString(std::format("Type '{}' cannot be converted to double",
+                                                            val->getTypeInfo().toString().toBasicString())));
                  }
              }},
             {u8"__fvalue_string_from",
@@ -310,10 +290,8 @@ namespace Fig
                  ObjectPtr val = args[0];
                  ValueType::DoubleClass d = val->getNumericValue();
                  int e;
-                 return std::make_shared<Object>(
-                     List({std::make_shared<Object>(frexp(d, &e)),
-                           std::make_shared<Object>(
-                               static_cast<ValueType::IntClass>(e))}));
+                 return std::make_shared<Object>(List({std::make_shared<Object>(frexp(d, &e)),
+                                                       std::make_shared<Object>(static_cast<ValueType::IntClass>(e))}));
              }},
             {u8"__fmath_gcd",
              [](const std::vector<ObjectPtr> &args) -> ObjectPtr {
@@ -406,8 +384,7 @@ namespace Fig
             auto it = builtinFunctions.find(name);
             if (it == builtinFunctions.end())
             {
-                throw RuntimeError(FString(std::format(
-                    "Builtin function '{}' not found", name.toBasicString())));
+                throw RuntimeError(FString(std::format("Builtin function '{}' not found", name.toBasicString())));
             }
             return it->second;
         }
@@ -417,8 +394,7 @@ namespace Fig
             auto it = builtinFunctionArgCounts.find(name);
             if (it == builtinFunctionArgCounts.end())
             {
-                throw RuntimeError(FString(std::format(
-                    "Builtin function '{}' not found", name.toBasicString())));
+                throw RuntimeError(FString(std::format("Builtin function '{}' not found", name.toBasicString())));
             }
             return it->second;
         }

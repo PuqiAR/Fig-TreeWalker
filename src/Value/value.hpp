@@ -33,15 +33,37 @@ namespace Fig
     }
     class Object;
     using ObjectPtr = std::shared_ptr<Object>;
-    using List = std::vector<ObjectPtr>;
+
 
     FString prettyType(std::shared_ptr<const Object> obj);
+
+    bool operator==(const Object &, const Object &);
+
+    struct Element
+    {
+        ObjectPtr value;
+        Element(ObjectPtr _value) :
+            value(_value) {}
+        
+        bool operator==(const Element &other) const
+        {
+            return *value == *other.value;
+        }
+
+        void deepCopy(const Element &e)
+        {
+            value = std::make_shared<Object>(*e.value);
+        }
+    };
+    using List = std::vector<Element>;
 
     struct ValueKey
     {
         ObjectPtr value;
         ValueKey(ObjectPtr _value) :
             value(_value) {}
+
+        void deepCopy(const ValueKey &vk) { value = std::make_shared<Object>(*vk.value); }
     };
 
     struct ValueKeyHash
@@ -180,7 +202,7 @@ namespace Fig
                                            const List &list = as<List>();
                                            if (i >= list.size())
                                                return Object::getNullInstance();
-                                           return list[i];
+                                           return list[i].value;
                                        }},
                                       {u8"push", [this](std::vector<ObjectPtr> args) -> ObjectPtr {
                                            if (args.size() != 1)
@@ -407,7 +429,7 @@ namespace Fig
             if (is<ValueType::NullClass>()) return FString(u8"null");
             if (is<ValueType::IntClass>()) return FString(std::to_string(as<ValueType::IntClass>()));
             if (is<ValueType::DoubleClass>()) return FString(std::format("{}", as<ValueType::DoubleClass>()));
-            if (is<ValueType::StringClass>()) return FString(u8"<String \"") + as<ValueType::StringClass>() + FString(u8"\" >");
+            if (is<ValueType::StringClass>()) return FString(u8"\"" + as<ValueType::StringClass>() + u8"\"");
             if (is<ValueType::BoolClass>()) return as<ValueType::BoolClass>() ? FString(u8"true") : FString(u8"false");
             if (is<Function>())
                 return FString(std::format("<Function '{}' at {:p}>",
@@ -430,7 +452,7 @@ namespace Fig
                 {
                     if (!first_flag)
                         output += u8", ";
-                    output += ele->toString();
+                    output += ele.value->toString();
                     first_flag = false;
                 }
                 output += u8"]";
