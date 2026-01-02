@@ -8,13 +8,13 @@ volumes:
 
 steps:
   - name: build-cross
-    image: ubuntu:24.04
+    image: "ubuntu:24.04"
     volumes:
       - type: cache
         name: apt-cache
         path: /var/cache/apt
     commands:
-      # 国内源加速
+      # 使用国内源加速
       - cp /etc/apt/sources.list /etc/apt/sources.list.bak
       - |
         cat << EOF > /etc/apt/sources.list
@@ -24,6 +24,7 @@ steps:
         deb https://mirrors.tuna.tsinghua.edu.cn/ubuntu/ $(lsb_release -cs)-backports main restricted universe multiverse
         EOF
 
+      # 安装依赖
       - apt-get update -y
       - apt-get install -y curl git build-essential clang llvm mingw-w64 ninja-build jq
 
@@ -37,13 +38,13 @@ steps:
       - mkdir -p dist
       - cp `xmake u -o`/Fig dist/Fig-linux
 
-      # 构建 Windows release
+      # 构建 Windows release (cross compile)
       - xmake f -m release --plat=windows --arch=x86_64 --cc=x86_64-w64-mingw32-g++ --cxx=x86_64-w64-mingw32-g++
       - xmake -v
       - cp `xmake u -o`/Fig.exe dist/Fig-windows.exe
 
   - name: gitea-release
-    image: ubuntu:24.04
+    image: "ubuntu:24.04"
     volumes:
       - type: cache
         name: apt-cache
