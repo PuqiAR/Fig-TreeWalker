@@ -1,60 +1,60 @@
-# .woodpecker.yml - Fig Language CI for Woodpecker
-# Windows/Linux 构建, xmake, 自动打包, 自动上传 Gitea Release
+# .woodpecker.yml - Fig Language CI
+# Linux Runner 编译 Linux + Windows 二进制, 测试, 打包, Gitea Release
 
-# 使用 Gitea token
-environment:
-  GITEA_TOKEN:
-    from_secret: GITEA_TOKEN
-  GITEA_REPO: "PuqiAR/Fig" # 替换成你的 Gitea 仓库
-  GITEA_URL: "https://git.fig-lang.cn" # 替换成你的 Gitea 地址
+steps:
+  - name: build-and-cross
+    image: debian:bookworm
+    commands:
+      # 安装依赖
+      - apt-get update -y
+      - apt-get install -y curl git build-essential clang llvm mingw-w64 ninja-build jq
+      # 安装 xmake
+      - curl -fsSL https://xmake.io/shget.text | bash
+      - export PATH=$HOME/.xmake/bin:$PATH
 
-# Linux 构建
-build-linux:
-  image: debian:bookworm
-  commands:
-    - apt-get update -y
-    - apt-get install -y curl git build-essential clang llvm ninja-build jq
-    - curl -fsSL https://xmake.io/shget.text | bash
-    - export PATH=$HOME/.xmake/bin:$PATH
-    - xmake f -m release
-    - xmake -v
-    - mkdir -p dist
-    - cp `xmake u -o`/Fig dist/
+      # 编译 Linux 版本
+      - xmake f -m release
+      - xmake -v
+      - mkdir -p dist
+      - cp `xmake u -o`/Fig dist/Fig-linux
 
-# Windows 构建
-build-windows:
-  image: mcr.microsoft.com/windows/servercore:ltsc2022
-  commands:
-    - choco install xmake -y
-    - choco install llvm -y
-    - set PATH=C:\Program Files\LLVM\bin;%PATH%
-    - xmake f -m release --cc=clang --cxx=clang++ --ld=clang++
-    - xmake -v
-    - mkdir dist
-    - copy `xmake u -o`\Fig dist\
+      # 交叉编译 Windows 版本 (mingw-w64)
+      - xmake f -m release --plat=windows --arch=x86_64 --cc=x86_64-w64-mingw32-gcc --cxx=x86_64-w64-mingw32-g++
+      - xmake -v
+      - cp `xmake u -o`/Fig.exe dist/Fig-windows.exe
 
-# 测试
-test:
-  image: debian:bookworm
-  depends_on:
-    - build-linux
-    - build-windows
-  commands:
-    - xmake r test_all || true
+  - name: test
+    image: debian:bookworm
+    depends_on:
+      - build-and-cross
+    commands:
+      - xmake r test_all || true
 
-# Gitea Release 上传（仅在打 tag 时触发）
-release:
-  image: debian:bookworm
-  depends_on:
-    - build-linux
-    - build-windows
-  when:
-    event: tag
-  commands:
-    - TAG_NAME=${DRONE_TAG} # Woodpecker 用 DRONE_TAG 保存 tag
-    - echo "Uploading Fig binaries for tag $TAG_NAME to Gitea"
-    - curl -X POST -H "Authorization: token $GITEA_TOKEN" \
+  - name: gitea-release
+    image: debian:bookworm
+    depends_on:
+      - build-and-cross
+    when:
+      event: tag
+    environment:
+      GITEA_TOKEN:
+        from_secret: GITEA_TOKEN
+      GITEA_REPO: "PuqiAR/Fig"
+      GITEA_URL: "https://git.fig-lang.cn"
+    commands:
+      - TAG_NAME=${DRONE_TAG}
+      - echo "Uploading Fig binaries for tag $TAG_NAME to Gitea"
+      # Linux binary
+      - |
+        curl -X POST -H "Authorization: token $GITEA_TOKEN" \
         -F "name=Fig-linux" \
         -F "label=Fig Linux binary" \
-        -F "file=@dist/Fig" \
+        -F "file=@dist/Fig-linux" \
+        "$GITEA_URL/api/v1/repos/$GITEA_REPO/releases/$TAG_NAME/assets"
+      # Windows binary
+      - |
+        curl -X POST -H "Authorization: token $GITEA_TOKEN" \
+        -F "name=Fig-windows.exe" \
+        -F "label=Fig Windows binary" \
+        -F "file=@dist/Fig-windows.exe" \
         "$GITEA_URL/api/v1/repos/$GITEA_REPO/releases/$TAG_NAME/assets"
