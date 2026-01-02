@@ -1,5 +1,7 @@
 # Fig 语言 - 现代脚本语言
 
+仓库已从github迁移！不再更新，新的仓库: [Fig](https://git.fig-lang.cn/PuqiAR/Fig)
+
 [English](README.md "英文版本")
 
 **Fig** 是一种静态类型、面向表达式的编程语言，专为清晰性、安全性和现代开发实践而设计。Fig 融合了 Go、Rust 和 JavaScript 的灵感，旨在提供高效的开发体验，同时保持强大的类型安全。

@@ -1,5 +1,7 @@
 # Fig Language - A Modern Scripting Language
 
+The repository has been migrated from github! No more updates. New repository: [Fig](https://git.fig-lang.cn/PuqiAR/Fig)
+
 [简体中文](README_ZH-CN.md "Chinese version")
 
 **Fig** is a statically-typed, expression-oriented programming language designed for clarity, safety, and modern development practices. With features inspired by Go, Rust, and JavaScript, Fig aims to provide a productive development experience while maintaining strong type safety.
