@@ -1,6 +1,6 @@
 # Woodpecker CI for Fig language
-# WSL2 Docker Runner + Linux/Windows cross compile
-# 使用官方 Ubuntu 镜像 + 国内源 + apt cache
+# Linux + Windows cross compile
+# 国内源 + apt cache，适合 WSL2 Docker Runner
 
 volumes:
   - name: apt-cache
@@ -14,14 +14,14 @@ steps:
         name: apt-cache
         path: /var/cache/apt
     commands:
-      # 国内源加速
+      # 换源加速
       - cp /etc/apt/sources.list /etc/apt/sources.list.bak
       - echo "deb https://mirrors.tuna.tsinghua.edu.cn/ubuntu/ $(lsb_release -cs) main restricted universe multiverse" > /etc/apt/sources.list
       - echo "deb https://mirrors.tuna.tsinghua.edu.cn/ubuntu/ $(lsb_release -cs)-updates main restricted universe multiverse" >> /etc/apt/sources.list
       - echo "deb https://mirrors.tuna.tsinghua.edu.cn/ubuntu/ $(lsb_release -cs)-security main restricted universe multiverse" >> /etc/apt/sources.list
       - echo "deb https://mirrors.tuna.tsinghua.edu.cn/ubuntu/ $(lsb_release -cs)-backports main restricted universe multiverse" >> /etc/apt/sources.list
 
-      # 安装构建依赖（apt cache 会复用已下载包）
+      # 安装依赖（apt cache 会复用）
       - apt-get update -y
       - apt-get install -y curl git build-essential clang llvm mingw-w64 ninja-build jq
 
