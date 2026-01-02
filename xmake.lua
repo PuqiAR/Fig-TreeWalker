@@ -7,11 +7,12 @@ target("Fig")
     set_kind("binary")
     set_languages("c++23") 
     
-    set_plat("mingw")
-
-    add_cxxflags("-static")
-    add_cxxflags("-stdlib=libc++")
-    add_ldflags("-Wl,--stack,268435456")
+    if is_plat("windows") then
+        set_plat("mingw")
+        add_cxxflags("-static")
+        add_cxxflags("-stdlib=libc++")
+        add_ldflags("-Wl,--stack,268435456")
+    end
 
     add_files("src/main.cpp")
     add_files("src/Core/warning.cpp")
