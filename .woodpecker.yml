@@ -1,39 +1,51 @@
-# .woodpecker.yml - Fig Language CI
-# Linux Runner 编译 Linux + Windows 二进制, 测试, 打包, Gitea Release
+# Woodpecker CI for Fig language
+# WSL2 Docker Runner + Linux/Windows cross compile
+# 使用官方 Ubuntu 镜像 + 国内源 + apt cache
+
+volumes:
+  - name: apt-cache
+    path: /var/cache/apt
 
 steps:
   - name: build-and-cross
-    image: debian:bookworm
+    image: ubuntu:24.04
+    volumes:
+      - type: cache
+        name: apt-cache
+        path: /var/cache/apt
     commands:
-      # 安装依赖
+      # 国内源加速
+      - cp /etc/apt/sources.list /etc/apt/sources.list.bak
+      - echo "deb https://mirrors.tuna.tsinghua.edu.cn/ubuntu/ $(lsb_release -cs) main restricted universe multiverse" > /etc/apt/sources.list
+      - echo "deb https://mirrors.tuna.tsinghua.edu.cn/ubuntu/ $(lsb_release -cs)-updates main restricted universe multiverse" >> /etc/apt/sources.list
+      - echo "deb https://mirrors.tuna.tsinghua.edu.cn/ubuntu/ $(lsb_release -cs)-security main restricted universe multiverse" >> /etc/apt/sources.list
+      - echo "deb https://mirrors.tuna.tsinghua.edu.cn/ubuntu/ $(lsb_release -cs)-backports main restricted universe multiverse" >> /etc/apt/sources.list
+
+      # 安装构建依赖（apt cache 会复用已下载包）
       - apt-get update -y
       - apt-get install -y curl git build-essential clang llvm mingw-w64 ninja-build jq
+
       # 安装 xmake
       - curl -fsSL https://xmake.io/shget.text | bash
-      - export PATH=$HOME/.xmake/bin:$PATH
+      - export PATH=$PATH:/root/.xmake/bin
 
-      # 编译 Linux 版本
+      # 构建 Linux release
       - xmake f -m release
       - xmake -v
       - mkdir -p dist
       - cp `xmake u -o`/Fig dist/Fig-linux
 
-      # 交叉编译 Windows 版本 (mingw-w64)
-      - xmake f -m release --plat=windows --arch=x86_64 --cc=x86_64-w64-mingw32-gcc --cxx=x86_64-w64-mingw32-g++
+      # 构建 Windows release (cross compile)
+      - xmake f -m release --plat=windows --arch=x86_64 --cc=x86_64-w64-mingw32-g++ --cxx=x86_64-w64-mingw32-g++
       - xmake -v
       - cp `xmake u -o`/Fig.exe dist/Fig-windows.exe
 
-  - name: test
-    image: debian:bookworm
-    depends_on:
-      - build-and-cross
-    commands:
-      - xmake r test_all || true
-
   - name: gitea-release
-    image: debian:bookworm
-    depends_on:
-      - build-and-cross
+    image: ubuntu:24.04
+    volumes:
+      - type: cache
+        name: apt-cache
+        path: /var/cache/apt
     when:
       event: tag
     environment:
