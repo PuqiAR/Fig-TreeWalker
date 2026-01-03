@@ -1,7 +1,12 @@
 name: Release Build
 on:
   push:
-    tags: ['v*']
+    tags: ['*']  # 匹配所有 tag
+  workflow_dispatch:
+    inputs:
+      version:
+        description: '版本号 (如: v1.0.0, 1.0.0, release-v1.0)'
+        required: true
 
 jobs:
   build:
@@ -10,12 +15,18 @@ jobs:
       - name: Checkout
         run: |
           git clone https://git.fig-lang.cn/${{ github.repository }} .
-          git checkout ${{ github.sha }}
+          git checkout ${{ github.ref }}
           
       - name: Get Version
         run: |
-          VERSION=${GITHUB_REF#refs/tags/}
+          # 从 tag 名获取版本，或使用手动输入
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            VERSION="${{ inputs.version }}"
+          else
+            VERSION="${GITHUB_REF#refs/tags/}"
+          fi
           echo "VERSION=$VERSION" >> $GITHUB_ENV
+          echo "Building version: $VERSION"
           
       - name: Install xmake
         run: |
@@ -33,18 +44,18 @@ jobs:
           cp build/linux/x86_64/release/Fig Fig-${{ env.VERSION }}-linux-x86_64/
           cp -r src/Module/Library Fig-${{ env.VERSION }}-linux-x86_64/
           tar -czf Fig-${{ env.VERSION }}-linux-x86_64.tar.gz Fig-${{ env.VERSION }}-linux-x86_64
-          sha256sum Fig-${{ env.VERSION }}-linux-x86_64.tar.gz > checksum.txt
+          sha256sum Fig-${{ env.VERSION }}-linux-x86_64.tar.gz > Fig-${{ env.VERSION }}-linux-x86_64.sha256
           
       - name: Upload to Release
         env:
           TOKEN: ${{ secrets.CI_TOKEN }}
         run: |
-          # 创建 Release
+          # 创建或更新 Release
           curl -X POST \
             -H "Authorization: token $TOKEN" \
             -H "Content-Type: application/json" \
-            -d "{\"tag_name\":\"${{ env.VERSION }}\",\"name\":\"Fig ${{ env.VERSION }}\"}" \
-            https://git.fig-lang.cn/api/v1/repos/${{ github.repository }}/releases || true
+            -d "{\"tag_name\":\"${{ env.VERSION }}\",\"name\":\"Fig ${{ env.VERSION }}\",\"prerelease\":false}" \
+            https://git.fig-lang.cn/api/v1/repos/${{ github.repository }}/releases || echo "Release may already exist"
           
           # 上传文件
           curl -X POST \
@@ -57,5 +68,5 @@ jobs:
           curl -X POST \
             -H "Authorization: token $TOKEN" \
             -H "Content-Type: text/plain" \
-            --data-binary @checksum.txt \
+            --data-binary @Fig-${{ env.VERSION }}-linux-x86_64.sha256 \
             "https://git.fig-lang.cn/api/v1/repos/${{ github.repository }}/releases/${{ env.VERSION }}/assets?name=Fig-${{ env.VERSION }}-linux-x86_64.sha256"
