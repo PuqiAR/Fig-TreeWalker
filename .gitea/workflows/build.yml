@@ -1,7 +1,7 @@
 name: Release Build
 on:
   push:
-    tags: ['*']  # 自动：任何Tag推送触发
+    tags: ['*']
   workflow_dispatch:
     inputs:
       version:
@@ -14,29 +14,53 @@ jobs:
     runs-on: ubuntu
     container:
       image: ubuntu:22.04
-      # 关键修复：配置容器使用国内可靠DNS，解决无法解析github.com的问题
-      options: --dns 223.5.5.5 --dns 223.6.6.6
+      options: --dns 223.5.5.5 --dns 223.6.6.6 # DNS配置保留，用于后续可能的需求
 
     steps:
       # 1. 安装系统必要工具
       - name: 安装基础工具
         run: |
           apt-get update
-          apt-get install -y curl git tar
-          echo "基础工具安装完成。"
+          apt-get install -y wget xz-utils tar git # 添加了 xz-utils 用于解压
+          echo “基础工具安装完成。”
 
-      # 2. 极速安装xmake (网络修复后优先官方脚本)
+      # 2. 【关键修复】离线安装xmake
       - name: 安装xmake
         run: |
-          echo "正在安装xmake..."
-          if curl -fsSL https://xmake.io/shget.text -o /tmp/install.sh; then
-            echo "使用官方脚本安装..."
-            bash /tmp/install.sh
+          echo “=== 开始离线安装 xmake ==="
+          
+          # 方案1：优先尝试从Ubuntu官方仓库安装（最稳定，无需外网）
+          if apt-get install -y xmake 2>/dev/null; then
+            echo “[成功] 通过系统包管理器安装 xmake。”
           else
-            echo "官方源备用方案失败，使用包管理器安装..."
-            apt-get update && apt-get install -y xmake
+            echo “系统仓库未提供 xmake，尝试方案2...”
+            # 方案2：手动下载并安装一个已知版本的预编译二进制包
+            # 这里使用一个版本号固定的、无需联网查询的下载地址
+            # 如果这个地址也失败，说明容器完全无外网，只能使用预置包。
+            INSTALL_VERSION=“v2.9.8”
+            PACKAGE_URL=“https://github.com/xmake-io/xmake/releases/download/${INSTALL_VERSION}/xmake-${INSTALL_VERSION}.linux-x86_64.tar.gz”
+            
+            echo “尝试从固定地址下载: ${PACKAGE_URL}”
+            if wget -q --timeout=30 --tries=3 -O xmake.tar.gz “${PACKAGE_URL}”; then
+              echo “[成功] 下载预编译包完成。”
+              tar -xzf xmake.tar.gz
+              cd xmake-* || cd xmake.*
+              ./install
+              cd ..
+            else
+              # 方案3：最终保底方案（需要你预先准备）
+              echo “[严重] 所有远程安装方式均失败。”
+              echo “请将 xmake 的预编译包 (xmake-v*.linux-x86_64.tar.gz) 放置在仓库根目录，并取消下方注释。”
+              # 如果以上都失败，最后的保底方案是使用你预置在仓库里的包
+              # tar -xzf xmake-v2.9.8.linux-x86_64.tar.gz
+              # cd xmake-v2.9.8.linux-x86_64
+              # ./install
+              # cd ..
+              exit 1
+            fi
           fi
-          echo "$HOME/.local/bin" >> $GITHUB_PATH
+          
+          echo “=== xmake 安装完成 ==="
           xmake --version
 
       # 3. 检出代码
@@ -48,77 +72,69 @@ jobs:
       # 4. 确定版本号
       - name: 设置版本
         run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            VERSION="${{ inputs.version }}"
+          if [ “${{ github.event_name }}” = “workflow_dispatch” ]; then
+            VERSION=“${{ inputs.version }}”
           else
-            VERSION="${GITHUB_REF#refs/tags/}"
+            VERSION=“${GITHUB_REF#refs/tags/}”
           fi
-          echo "构建版本: $VERSION"
-          echo "VERSION=$VERSION" >> $GITHUB_ENV
+          echo “构建版本: $VERSION”
+          echo “VERSION=$VERSION” >> $GITHUB_ENV
 
       # 5. 构建项目 (Linux x86_64)
       - name: 构建项目
         run: |
-          export PATH="$HOME/.local/bin:$PATH"
+          export PATH=“$HOME/.local/bin:/usr/local/bin:$PATH”
           xmake f -p linux -a x86_64 -m release -y
           xmake build -j$(nproc)
-          echo "构建成功。"
+          echo “构建成功。”
 
       # 6. 打包 (包含Library目录)
       - name: 打包发布文件
         run: |
-          export PATH="$HOME/.local/bin:$PATH"
-          PACKAGE_NAME="Fig-${{ env.VERSION }}-linux-x86_64"
-          mkdir -p "${PACKAGE_NAME}"
+          export PATH=“$HOME/.local/bin:/usr/local/bin:$PATH”
+          PACKAGE_NAME=“Fig-${{ env.VERSION }}-linux-x86_64”
+          mkdir -p “${PACKAGE_NAME}”
           
-          # 复制可执行文件
-          cp build/linux/x86_64/release/Fig "${PACKAGE_NAME}/"
-          # 复制Library目录（如果存在）
-          if [ -d "src/Module/Library" ]; then
-            cp -r src/Module/Library "${PACKAGE_NAME}/"
-            echo "已包含Library目录。"
+          cp build/linux/x86_64/release/Fig “${PACKAGE_NAME}/”
+          if [ -d “src/Module/Library” ]; then
+            cp -r src/Module/Library “${PACKAGE_NAME}/”
+            echo “已包含Library目录。”
           else
-            echo "未找到Library目录，跳过。"
+            echo “未找到Library目录，跳过。”
           fi
           
-          # 创建压缩包和校验和
-          tar -czf "${PACKAGE_NAME}.tar.gz" "${PACKAGE_NAME}"
-          sha256sum "${PACKAGE_NAME}.tar.gz" > "${PACKAGE_NAME}.sha256"
+          tar -czf “${PACKAGE_NAME}.tar.gz” “${PACKAGE_NAME}”
+          sha256sum “${PACKAGE_NAME}.tar.gz” > “${PACKAGE_NAME}.sha256”
           
-          echo "打包完成:"
+          echo “打包完成:”
           ls -lh Fig-*.tar.gz Fig-*.sha256
 
       # 7. 发布到Gitea Releases
       - name: 发布到Gitea
         env:
-          GITEA_TOKEN: ${{ secrets.CI_TOKEN }} # 需在仓库Secrets中配置
+          GITEA_TOKEN: ${{ secrets.CI_TOKEN }}
         run: |
-          VERSION="${{ env.VERSION }}"
-          REPO_API="https://git.fig-lang.cn/api/v1/repos/${{ github.repository }}"
+          VERSION=“${{ env.VERSION }}”
+          REPO_API=“https://git.fig-lang.cn/api/v1/repos/${{ github.repository }}”
           
-          echo "正在为版本 $VERSION 创建或更新Release..."
-          # 创建Release（如果已存在则忽略错误）
+          echo “正在为版本 $VERSION 创建或更新Release...”
           curl -sSf -X POST \
-            -H "Authorization: token $GITEA_TOKEN" \
-            -H "Content-Type: application/json" \
-            -d "{\"tag_name\":\"$VERSION\", \"name\":\"Fig $VERSION\", \"draft\": false, \"prerelease\": false}" \
-            "${REPO_API}/releases" 2>/dev/null || echo "Release可能已存在，继续上传。"
+            -H “Authorization: token $GITEA_TOKEN” \
+            -H “Content-Type: application/json” \
+            -d “{\“tag_name\”:\”$VERSION\“, \“name\”:\”Fig $VERSION\“, \“draft\”: false, \“prerelease\”: false}” \
+            “${REPO_API}/releases” 2>/dev/null || echo “Release可能已存在，继续上传。”
           
-          echo "正在上传构建产物..."
-          # 上传主程序包
+          echo “正在上传构建产物...”
           curl -sSf -X POST \
-            -H "Authorization: token $GITEA_TOKEN" \
-            -H "Content-Type: application/octet-stream" \
+            -H “Authorization: token $GITEA_TOKEN” \
+            -H “Content-Type: application/octet-stream” \
             --data-binary @Fig-${VERSION}-linux-x86_64.tar.gz \
-            "${REPO_API}/releases/${VERSION}/assets?name=Fig-${VERSION}-linux-x86_64.tar.gz"
+            “${REPO_API}/releases/${VERSION}/assets?name=Fig-${VERSION}-linux-x86_64.tar.gz”
           
-          # 上传校验文件
           curl -sSf -X POST \
-            -H "Authorization: token $GITEA_TOKEN" \
-            -H "Content-Type: text/plain" \
+            -H “Authorization: token $GITEA_TOKEN” \
+            -H “Content-Type: text/plain” \
             --data-binary @Fig-${VERSION}-linux-x86_64.sha256 \
-            "${REPO_API}/releases/${VERSION}/assets?name=Fig-${VERSION}-linux-x86_64.sha256"
+            “${REPO_API}/releases/${VERSION}/assets?name=Fig-${VERSION}-linux-x86_64.sha256”
           
-          echo "✅ 发布流程完成！"
-          echo "版本: Fig $VERSION"
-          echo "文件: Fig-${VERSION}-linux-x86_64.tar.gz"
+          echo “✅ 发布流程完成！”
