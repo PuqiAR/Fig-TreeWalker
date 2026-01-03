@@ -50,6 +50,11 @@ jobs:
       - name: 构建Linux安装器
         run: |
           echo "开始构建Linux安装器..."
+
+          echo "安装Python3和pip..."
+          sudo apt-get update
+          sudo apt-get install -y python3 python3-pip
+          
           cd Installer/ConsoleInstaller
           # 确保pip已安装
           if ! command -v pip3 &> /dev/null; then
