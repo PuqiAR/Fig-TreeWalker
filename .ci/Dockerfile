@@ -1,7 +1,6 @@
 # 第一阶段：构建基础环境
 FROM ubuntu:24.04 AS builder-base
 
-# 1. 设置APT镜像源加速
 RUN sed -i 's/archive.ubuntu.com/mirrors.aliyun.com/g' /etc/apt/sources.list && \
     sed -i 's/security.ubuntu.com/mirrors.aliyun.com/g' /etc/apt/sources.list
 
@@ -23,27 +22,30 @@ RUN wget -O /usr/local/bin/xmake \
 # 第二阶段：创建最终镜像
 FROM ubuntu:24.04
 
-# 【关键修复】在最终镜像中安装CI必需的运行时工具
+# 安装CI运行时工具
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
         git tar curl ca-certificates \
+        # 关键：安装clang运行时库，解决 libclang-cpp.so.19.1 依赖
+        libclang-rt-19-dev \
         && rm -rf /var/lib/apt/lists/*
 
-# 1. 复制编译器、xmake和库文件
+# 复制编译器、xmake和库文件
 COPY --from=builder-base /usr/local/bin/xmake /usr/local/bin/xmake
 COPY --from=builder-base /usr/bin/clang++ /usr/bin/clang++
 COPY --from=builder-base /usr/bin/clang /usr/bin/clang
 COPY --from=builder-base /usr/bin/ld.lld /usr/bin/ld.lld
 COPY --from=builder-base /usr/x86_64-w64-mingw32 /usr/x86_64-w64-mingw32
-COPY --from=builder-base /usr/lib/llvm-19 /usr/lib/llvm-19
+# 关键：复制完整的LLVM库目录，而不仅仅是/usr/lib/llvm-19
+COPY --from=builder-base /usr/lib/x86_64-linux-gnu /usr/lib/x86_64-linux-gnu
 
-# 2. 创建非root用户
+# 设置非root用户
 RUN useradd -m -s /bin/bash builder
 
 USER builder
 WORKDIR /home/builder
 
-# 3. 验证环境
+# 验证环境
 RUN xmake --version | head -1 && \
     clang++ --version | head -1 && \
     git --version && \

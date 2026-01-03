@@ -10,8 +10,8 @@ target("Fig")
     if is_plat("linux") then
         -- Linux: clang + libc++
         set_toolchains("clang")
-        add_cxxflags("-stdlib=libc++")
-        add_ldflags("-stdlib=libc++")
+        add_cxxflags("-stdlib=libc++", {force = true})
+        add_ldflags("-stdlib=libc++", {force = true})
     elseif is_plat("mingw") then
         -- 1. CI cross (Linux -> Windows)
         -- 2. local dev (Windows + llvm-mingw)
