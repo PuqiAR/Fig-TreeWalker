@@ -15,6 +15,7 @@ target("Fig")
     elseif is_plat("windows") then
         -- 1. CI cross (Linux -> Windows)
         -- 2. local dev (Windows + llvm-mingw)
+        set_toolchains("mingw") -- llvm-mingw
         add_ldflags("-Wl,--stack,268435456")
         -- set_toolchains("clang")
         -- static lib
