@@ -1,7 +1,7 @@
 steps:
   - name: build-cross
     image: "ubuntu:24.04"
-    shell: /bin/bash   # 强制 bash，避免 dash 语法报错
+    shell: /bin/bash   # 强制 bash，避免 dash 解析错误
     when:
       event:
         - push
@@ -19,10 +19,12 @@ steps:
       - apt-get update -y
       - apt-get install -y curl git build-essential clang llvm mingw-w64 ninja-build jq
 
-      # 2️⃣ 安装 xmake 到全局 PATH（安全稳定）
-      - curl -fsSL https://xmake.io/shget.text | bash -s -- --install-to=/usr/local/bin
+      # 2️⃣ 下载并安装 xmake 到全局 PATH（稳定）
+      - curl -fsSL https://xmake.io/shget.text -o /tmp/xmake-get.sh
+      - chmod +x /tmp/xmake-get.sh
+      - bash /tmp/xmake-get.sh --install-to=/usr/local/bin
 
-      # 3️⃣ 获取版本号（tag 或 commit）
+      # 3️⃣ 获取真实版本号
       - VERSION=$(git describe --tags --always --dirty)
 
       # 4️⃣ Linux 构建
