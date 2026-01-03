@@ -174,9 +174,21 @@ jobs:
           GITEA_TOKEN: ${{ secrets.CI_TOKEN }}
         run: |
           [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
-          $VERSION = $env:VERSION
+          
+          # 重新计算版本号（不使用 $env:VERSION）
+          if ($env:GITHUB_EVENT_NAME -eq 'workflow_dispatch') {
+            $VERSION = $env:INPUT_VERSION
+            if (-not $VERSION) { $VERSION = "dev-build" }
+          } else {
+            $VERSION = $env:GITHUB_REF_NAME
+          }
+          
+          Write-Host "正在上传Windows版本到发布: $VERSION"
+          
           $REPO = $env:GITHUB_REPOSITORY
           $API = "https://git.fig-lang.cn/api/v1/repos/$REPO"
+          $TOKEN = $env:GITEA_TOKEN
+          
           $TOKEN = $env:GITEA_TOKEN
           
           Write-Host "正在上传Windows版本到发布 $VERSION ..."
