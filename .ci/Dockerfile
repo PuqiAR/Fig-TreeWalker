@@ -1,15 +1,19 @@
 FROM ubuntu:24.04
 
-# 1. 安装LLVM/Clang 17+工具链（Ubuntu 24.04官方源已包含）
+# 1. 添加 LLVM 官方仓库并安装 Clang 19 工具链
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
-        wget tar git curl ca-certificates \
+        wget tar git curl ca-certificates gnupg lsb-release software-properties-common && \
+    wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | apt-key add - && \
+    add-apt-repository -y "deb http://apt.llvm.org/noble/ llvm-toolchain-noble-19 main" && \
+    apt-get update && \
+    apt-get install -y --no-install-recommends \
         build-essential \
-        clang-17 lld-17 libc++-17-dev libc++abi-17-dev \
+        clang-19 lld-19 libc++-19-dev libc++abi-19-dev \
         && rm -rf /var/lib/apt/lists/* && \
-    update-alternatives --install /usr/bin/clang clang /usr/bin/clang-17 100 && \
-    update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++-17 100 && \
-    update-alternatives --install /usr/bin/ld ld /usr/bin/ld.lld-17 100
+    update-alternatives --install /usr/bin/clang clang /usr/bin/clang-19 100 && \
+    update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++-19 100 && \
+    update-alternatives --install /usr/bin/ld ld /usr/bin/ld.lld-19 100
 
 # 2. 设置非root用户
 RUN useradd -m -s /bin/bash builder
@@ -27,7 +31,5 @@ USER root
 RUN cp /home/builder/xmake /usr/local/bin/xmake && \
     chmod +x /usr/local/bin/xmake
 
-# # 5. 验证环境
-# RUN clang++ --version && xmake --version
-
+# 5. 切换回非root用户作为容器默认用户
 USER builder
