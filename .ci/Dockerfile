@@ -3,8 +3,11 @@ FROM ubuntu:22.04
 # 设置非root用户
 RUN useradd -m -s /bin/bash builder
 
-# 1. 安装构建工具和编译器（包含 GCC 13）
+# 1. 添加包含 GCC 13 的软件源并安装
 RUN apt-get update && \
+    apt-get install -y --no-install-recommends software-properties-common && \
+    add-apt-repository -y ppa:ubuntu-toolchain-r/test && \
+    apt-get update && \
     apt-get install -y --no-install-recommends \
         wget tar git curl ca-certificates \
         build-essential \
