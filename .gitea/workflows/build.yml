@@ -106,155 +106,105 @@ jobs:
     steps:
       - name: 验证Windows工具链
         run: |
-          # 设置当前 PowerShell 会话的执行策略
-          powershell -Command "Set-ExecutionPolicy -ExecutionPolicy Bypass -Scope Process -Force"
-          
-          # 使用 PowerShell 语法检查工具链
-          powershell -Command "
-            # 检查 xmake
-            if (Get-Command xmake -ErrorAction SilentlyContinue) {
-              Write-Host '✅ xmake 已安装'
-              xmake --version
-            } else {
-              Write-Host '警告: xmake 未找到'
-            }
-            
-            # 检查 clang++
-            if (Get-Command clang++ -ErrorAction SilentlyContinue) {
-              Write-Host '✅ clang++ 已安装'
-              clang++ --version
-            } else {
-              Write-Host '警告: clang++ 未找到'
-            }
-            
-            # 检查 git（可选）
-            if (Get-Command git -ErrorAction SilentlyContinue) {
-              Write-Host '✅ git 已安装'
-            } else {
-              Write-Host '警告: git 未找到'
-            }
-          "
+          Set-ExecutionPolicy Bypass -Scope Process -Force
+          # 检查 xmake
+          if (Get-Command xmake -ErrorAction SilentlyContinue) {
+            Write-Host '✅ xmake 已安装'
+            xmake --version
+          } else { Write-Host '警告: xmake 未找到' }
+          # 检查 clang++
+          if (Get-Command clang++ -ErrorAction SilentlyContinue) {
+            Write-Host '✅ clang++ 已安装'
+            clang++ --version
+          } else { Write-Host '警告: clang++ 未找到' }
 
       - name: 检出代码
         run: |
-          # 确保Git在PATH中
           $env:Path = "C:\Program Files\Git\cmd;$env:Path"
           git clone https://git.fig-lang.cn/$env:GITHUB_REPOSITORY .
           git checkout $env:GITHUB_REF
 
       - name: 设置版本
         run: |
-          # 方法：通过 Gitea 预置的环境变量获取所有信息
-          $EventName = $env:GITHUB_EVENT_NAME
-          $Ref = $env:GITHUB_REF
-          $RefName = $env:GITHUB_REF_NAME # 这是标签名或分支名
-          
-          Write-Host "事件类型: $EventName"
-          Write-Host "引用: $Ref"
-          Write-Host "引用名称: $RefName"
-          
-          if ($EventName -eq 'workflow_dispatch') {
-            # 手动触发：尝试从多种可能的环境变量获取版本
+          [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+          if ($env:GITHUB_EVENT_NAME -eq 'workflow_dispatch') {
             $VERSION = $env:INPUT_VERSION
-            if (-not $VERSION) {
-              $VERSION = $env:VERSION_INPUT
-              if (-not $VERSION) {
-                $VERSION = "dev-build"
-              }
-            }
+            if (-not $VERSION) { $VERSION = $env:VERSION_INPUT }
+            if (-not $VERSION) { $VERSION = "dev-build" }
           } else {
-            # 标签推送：直接从引用名称获取
-            $VERSION = $RefName
+            $VERSION = $env:GITHUB_REF_NAME
           }
-          
           Write-Host "构建版本: $VERSION"
-          echo "VERSION=$VERSION" >> $env:GITHUB_ENV
+          "VERSION=$VERSION" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
 
       - name: 构建项目 (Windows Native)
-        run: powershell -Command "xmake f -p windows -a x86_64 -m release -y; xmake build -j`$env:NUMBER_OF_PROCESSORS; Write-Host 'Done'"
+        run: |
+          xmake f -p windows -a x86_64 -m release -y
+          xmake build -j $env:NUMBER_OF_PROCESSORS
+          Write-Host 'Windows构建成功。'
 
       - name: 打包Windows发布文件
         run: |
-          powershell -Command "
-            `$VERSION = `$env:VERSION
-            `$PACKAGE_NAME = \"Fig-`$VERSION-windows-x86_64\"
-            New-Item -ItemType Directory -Force -Path `$PACKAGE_NAME
-            
-            # 尝试查找可执行文件
-            if (Test-Path 'build\windows\x86_64\release\Fig.exe') {
-              Copy-Item 'build\windows\x86_64\release\Fig.exe' `$PACKAGE_NAME\
-            } elseif (Test-Path 'build\windows\x86_64\release\Fig') {
-              Copy-Item 'build\windows\x86_64\release\Fig' `$PACKAGE_NAME\Fig.exe
-            } else {
-              Write-Host '错误：未找到构建输出文件'
-              Get-ChildItem -Recurse -Path build -Include 'Fig*' | Select-Object -First 5
-              exit 1
-            }
-            
-            if (Test-Path 'src\Module\Library') {
-              Copy-Item -Recurse 'src\Module\Library' `$PACKAGE_NAME\
-            }
-            Compress-Archive -Path `$PACKAGE_NAME -DestinationPath \"`$PACKAGE_NAME.zip\"
-            `$Hash = Get-FileHash \"`$PACKAGE_NAME.zip\" -Algorithm SHA256
-            \"`$(`$Hash.Hash)  `$PACKAGE_NAME.zip\" | Out-File \"`$PACKAGE_NAME.sha256\" -Encoding UTF8
-            Write-Host \"Windows打包完成: `$PACKAGE_NAME.zip\"
-          "
+          [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+          $VERSION = $env:VERSION
+          $PACKAGE_NAME = "Fig-$VERSION-windows-x86_64"
+          New-Item -ItemType Directory -Force -Path $PACKAGE_NAME
+          
+          # 尝试查找可执行文件
+          if (Test-Path 'build\windows\x86_64\release\Fig.exe') {
+            Copy-Item 'build\windows\x86_64\release\Fig.exe' $PACKAGE_NAME\
+          } elseif (Test-Path 'build\windows\x86_64\release\Fig') {
+            Copy-Item 'build\windows\x86_64\release\Fig' $PACKAGE_NAME\Fig.exe
+          } else {
+            Write-Host '错误：未找到构建输出文件'
+            Get-ChildItem -Recurse -Path build -Include 'Fig*' | Select-Object -First 5
+            exit 1
+          }
+          
+          if (Test-Path 'src\Module\Library') {
+            Copy-Item -Recurse 'src\Module\Library' $PACKAGE_NAME\
+          }
+          Compress-Archive -Path $PACKAGE_NAME -DestinationPath "$PACKAGE_NAME.zip"
+          $Hash = Get-FileHash "$PACKAGE_NAME.zip" -Algorithm SHA256
+          "$($Hash.Hash)  $PACKAGE_NAME.zip" | Out-File "$PACKAGE_NAME.sha256" -Encoding UTF8
+          Write-Host "Windows打包完成: $PACKAGE_NAME.zip"
 
       - name: 发布Windows版本到Gitea
         env:
           GITEA_TOKEN: ${{ secrets.CI_TOKEN }}
         run: |
-          powershell -Command "
-            `$VERSION = `$env:VERSION
-            `$REPO = `$env:GITHUB_REPOSITORY
-            `$API = \"https://git.fig-lang.cn/api/v1/repos/`$REPO\"
-            
-            Write-Host \"正在上传Windows版本到发布 `$VERSION ...\"
-            
-            # 1. 尝试通过标签获取 Release ID
-            `$RELEASE_RESPONSE = Invoke-RestMethod -Uri \"`$API/releases/tags/`$VERSION\" -Headers @{
-              Authorization = \"token `$env:GITEA_TOKEN\"
-            } -ErrorAction SilentlyContinue
-            
-            if (`$RELEASE_RESPONSE -and `$RELEASE_RESPONSE.id) {
-              `$RELEASE_ID = `$RELEASE_RESPONSE.id
-              Write-Host \"找到已有发布 ID: `$RELEASE_ID\"
+          [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+          $VERSION = $env:VERSION
+          $REPO = $env:GITHUB_REPOSITORY
+          $API = "https://git.fig-lang.cn/api/v1/repos/$REPO"
+          $TOKEN = $env:GITEA_TOKEN
+          
+          Write-Host "正在上传Windows版本到发布 $VERSION ..."
+          
+          # 1. 尝试通过标签获取 Release ID
+          $RELEASE_RESPONSE = Invoke-RestMethod -Uri "$API/releases/tags/$VERSION" -Headers @{Authorization = "token $TOKEN" } -ErrorAction SilentlyContinue
+          if ($RELEASE_RESPONSE -and $RELEASE_RESPONSE.id) {
+            $RELEASE_ID = $RELEASE_RESPONSE.id
+            Write-Host "找到已有发布 ID: $RELEASE_ID"
+          } else {
+            # 如果不存在，则创建新发布
+            Write-Host '发布不存在，正在创建...'
+            $CREATE_BODY = @{tag_name = $VERSION; name = "Fig $VERSION"; draft = $false; prerelease = $false } | ConvertTo-Json
+            $CREATE_RESPONSE = Invoke-RestMethod -Method Post -Uri "$API/releases" -Headers @{Authorization = "token $TOKEN"; 'Content-Type' = 'application/json' } -Body $CREATE_BODY
+            if ($CREATE_RESPONSE -and $CREATE_RESPONSE.id) {
+              $RELEASE_ID = $CREATE_RESPONSE.id
+              Write-Host "创建新发布 ID: $RELEASE_ID"
             } else {
-              # 如果不存在，则创建新发布
-              Write-Host '发布不存在，正在创建...'
-              `$CREATE_BODY = @{
-                tag_name = `$VERSION
-                name = \"Fig `$VERSION\"
-                draft = `$false
-                prerelease = `$false
-              } | ConvertTo-Json
-              
-              `$CREATE_RESPONSE = Invoke-RestMethod -Method Post -Uri \"`$API/releases\" -Headers @{
-                Authorization = \"token `$env:GITEA_TOKEN\"
-                'Content-Type' = 'application/json'
-              } -Body `$CREATE_BODY -ErrorAction SilentlyContinue
-              
-              if (`$CREATE_RESPONSE -and `$CREATE_RESPONSE.id) {
-                `$RELEASE_ID = `$CREATE_RESPONSE.id
-                Write-Host \"创建新发布 ID: `$RELEASE_ID\"
-              } else {
-                Write-Host '错误：无法获取或创建发布'
-                exit 1
-              }
+              Write-Host '错误：无法获取或创建发布'
+              exit 1
             }
-            
-            # 2. 使用 Release ID 上传资产
-            Write-Host '正在上传 ZIP 文件...'
-            Invoke-RestMethod -Method Post -Uri \"`$API/releases/`$RELEASE_ID/assets?name=Fig-`$VERSION-windows-x86_64.zip\" -Headers @{
-              Authorization = \"token `$env:GITEA_TOKEN\"
-              'Content-Type' = 'application/octet-stream'
-            } -InFile \"Fig-`$VERSION-windows-x86_64.zip\" -ErrorAction SilentlyContinue
-            
-            Write-Host '正在上传校验文件...'
-            Invoke-RestMethod -Method Post -Uri \"`$API/releases/`$RELEASE_ID/assets?name=Fig-`$VERSION-windows-x86_64.sha256\" -Headers @{
-              Authorization = \"token `$env:GITEA_TOKEN\"
-              'Content-Type' = 'text/plain'
-            } -InFile \"Fig-`$VERSION-windows-x86_64.sha256\" -ErrorAction SilentlyContinue
-            
-            Write-Host '✅ Windows版本发布完成！'
-          "
+          }
+          
+          # 2. 使用 Release ID 上传资产
+          Write-Host '正在上传 ZIP 文件...'
+          Invoke-RestMethod -Method Post -Uri "$API/releases/$RELEASE_ID/assets?name=Fig-$VERSION-windows-x86_64.zip" -Headers @{Authorization = "token $TOKEN"; 'Content-Type' = 'application/octet-stream' } -InFile "Fig-$VERSION-windows-x86_64.zip"
+          
+          Write-Host '正在上传校验文件...'
+          Invoke-RestMethod -Method Post -Uri "$API/releases/$RELEASE_ID/assets?name=Fig-$VERSION-windows-x86_64.sha256" -Headers @{Authorization = "token $TOKEN"; 'Content-Type' = 'text/plain' } -InFile "Fig-$VERSION-windows-x86_64.sha256"
+          
+          Write-Host '✅ Windows版本发布完成！'
