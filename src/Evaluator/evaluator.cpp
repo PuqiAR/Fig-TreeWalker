@@ -984,6 +984,7 @@ namespace Fig
             }
 
             default: assert(false);
+            return Object::getNullInstance(); // ignore warning
         }
     }
     StatementResult Evaluator::evalBlockStatement(Ast::BlockStatement block, ContextPtr ctx)

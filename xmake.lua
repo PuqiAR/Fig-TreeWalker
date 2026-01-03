@@ -8,17 +8,20 @@ target("Fig")
     set_languages("c++23")
 
     if is_plat("linux") then
+        -- Linux: clang + libc++
         set_toolchains("clang")
         add_cxxflags("-stdlib=libc++")
         add_ldflags("-stdlib=libc++")
-    elseif is_plat("windows") then
-        set_toolchains("mingw")
-        add_cxxflags("-stdlib=libc++")
-        add_ldflags("-static")
     elseif is_plat("mingw") then
-        set_toolchains("mingw")
-        add_cxxflags("-static")
-        add_ldflags("-static")
+        -- 1. CI cross (Linux -> Windows)
+        -- 2. local dev (Windows + llvm-mingw)
+        set_toolchains("clang")
+        -- static lib
+        add_cxxflags("-target x86_64-w64-mingw32", "-static")
+        
+        -- add_ldflags("-target x86_64-w64-mingw32", "-static")
+        -- add_cxxflags("-stdlib=libc++")
+        -- add_ldflags("-stdlib=libc++")
     end
     
     add_ldflags("-Wl,--stack,268435456")

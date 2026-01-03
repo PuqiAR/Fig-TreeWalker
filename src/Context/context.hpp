@@ -366,6 +366,7 @@ namespace Fig
             }
 
             assert(false);
+            return Function(); // ignore warning
         }
 
         const Function &getImplementedMethod(const TypeInfo &structType,
@@ -385,6 +386,7 @@ namespace Fig
                 return parent->getImplementedMethod(structType, functionName);
 
             assert(false); // not found
+            throw ""; // ignore warning
         }
 
         void printStackTrace(std::ostream &os = std::cerr, int indent = 0) const

@@ -76,6 +76,7 @@ namespace Fig
                 return std::hash<TypeInfo>{}(si.parentType) + std::hash<uint64_t>{}(reinterpret_cast<uint64_t>(std::addressof(*si.localContext)));
             }
             assert(false);
+            throw ""; // ignore warning
         }
     }
 
