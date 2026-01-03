@@ -16,7 +16,7 @@ target("Fig")
         -- 1. CI cross (Linux -> Windows)
         -- 2. local dev (Windows + llvm-mingw)
         add_ldflags("-Wl,--stack,268435456")
-        set_toolchains("clang")
+        -- set_toolchains("clang")
         -- static lib
         -- add_ldflags("-target x86_64-w64-mingw32", "-static")
         -- add_cxxflags("-stdlib=libc++")
