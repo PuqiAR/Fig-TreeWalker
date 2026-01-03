@@ -1,6 +1,6 @@
 # Fig 语言 - 现代脚本语言
 
-仓库已从github迁移！不再更新，新的仓库: [Fig](https://git.fig-lang.cn/PuqiAR/Fig)
+[Fig-Gitea](https://git.fig-lang.cn/PuqiAR/Fig)
 
 [English](README.md "英文版本")
 

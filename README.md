@@ -1,6 +1,6 @@
 # Fig Language - A Modern Scripting Language
 
-The repository has been migrated from github! No more updates. New repository: [Fig](https://git.fig-lang.cn/PuqiAR/Fig)
+[Fig-Gitea](https://git.fig-lang.cn/PuqiAR/Fig)
 
 [简体中文](README_ZH-CN.md "Chinese version")
 
