@@ -20,19 +20,22 @@ steps:
       - apt-get update -y
       - apt-get install -y curl git build-essential clang llvm mingw-w64 ninja-build jq
 
-      # 2️⃣ 安装 xmake
-      - curl -fsSL https://xmake.io/shget.text | bash
+      # 2️⃣ 安装 xmake 到全局 PATH
+      - bash <(curl -fsSL https://xmake.io/shget.text) --install-to=/usr/local/bin
 
-      # 3️⃣ Linux release build
-      - /root/.xmake/bin/xmake f -m release
-      - /root/.xmake/bin/xmake -v
+      # 3️⃣ 读取真实版本号
+      - VERSION=$(git describe --tags --always --dirty)
+
+      # 4️⃣ Linux 构建
+      - xmake f -m release
+      - xmake -v
       - mkdir -p dist
-      - cp `/root/.xmake/bin/xmake u -o`/Fig dist/Fig-linux
+      - cp `xmake u -o`/Fig dist/Fig-${VERSION}-linux-x86_64
 
-      # 4️⃣ Windows cross-build
-      - /root/.xmake/bin/xmake f -m release --plat=windows --arch=x86_64 --cc=x86_64-w64-mingw32-g++ --cxx=x86_64-w64-mingw32-g++
-      - /root/.xmake/bin/xmake -v
-      - cp `/root/.xmake/bin/xmake u -o`/Fig.exe dist/Fig-windows.exe
+      # 5️⃣ Windows cross-build
+      - xmake f -m release --plat=windows --arch=x86_64 --cc=x86_64-w64-mingw32-g++ --cxx=x86_64-w64-mingw32-g++
+      - xmake -v
+      - cp `xmake u -o`/Fig.exe dist/Fig-${VERSION}-windows-x86_64.exe
 
   - name: gitea-release
     image: "ubuntu:24.04"
@@ -43,17 +46,17 @@ steps:
       GITEA_TOKEN:
         from_secret: GITEA_TOKEN
     commands:
-      - TAG=${DRONE_TAG}
+      - TAG=$(git describe --tags --exact-match || echo ${DRONE_TAG})
       - echo "Uploading Fig binaries for tag $TAG to Gitea"
 
       # Linux binary
       - |
         curl -X POST -H "Authorization: token ${GITEA_TOKEN}" \
-        -F "name=Fig-linux" -F "file=@dist/Fig-linux" \
+        -F "name=Fig-${TAG}-linux-x86_64" -F "file=@dist/Fig-${TAG}-linux-x86_64" \
         "https://git.fig-lang.cn/api/v1/repos/PuqiAR/Fig/releases/${TAG}/assets"
 
       # Windows binary
       - |
         curl -X POST -H "Authorization: token ${GITEA_TOKEN}" \
-        -F "name=Fig-windows.exe" -F "file=@dist/Fig-windows.exe" \
+        -F "name=Fig-${TAG}-windows-x86_64.exe" -F "file=@dist/Fig-${TAG}-windows-x86_64.exe" \
         "https://git.fig-lang.cn/api/v1/repos/PuqiAR/Fig/releases/${TAG}/assets"
