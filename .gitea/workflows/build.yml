@@ -144,15 +144,33 @@ jobs:
 
       - name: 设置版本
         run: |
-          powershell -Command "
-            if ('${{ github.event_name }}' -eq 'workflow_dispatch') {
-              `$VERSION = '${{ inputs.version }}'
-            } else {
-              `$VERSION = '${{ github.ref }}' -replace 'refs/tags/', ''
+          # 方法：通过 Gitea 预置的环境变量获取所有信息
+          $EventName = $env:GITHUB_EVENT_NAME
+          $Ref = $env:GITHUB_REF
+          $RefName = $env:GITHUB_REF_NAME # 这是标签名或分支名
+          
+          Write-Host "事件类型: $EventName"
+          Write-Host "引用: $Ref"
+          Write-Host "引用名称: $RefName"
+          
+          if ($EventName -eq 'workflow_dispatch') {
+            # 手动触发：从输入获取版本
+            # Gitea 通常会把 inputs.xxx 转为 INPUT_XXX 环境变量
+            $VERSION = $env:INPUT_VERSION
+            if (-not $VERSION) {
+              # 如果环境变量名不同，尝试其他常见名称
+              $VERSION = $env:VERSION
+              if (-not $VERSION) {
+                $VERSION = "dev-build"
+              }
             }
-            Write-Host \"构建版本: `$VERSION\"
-            echo \"VERSION=`$VERSION\" >> `$env:GITHUB_ENV
-          "
+          } else {
+            # 标签推送：直接从引用名称获取
+            $VERSION = $RefName
+          }
+          
+          Write-Host "构建版本: $VERSION"
+          echo "VERSION=$VERSION" >> $env:GITHUB_ENV
       - name: 构建项目 (Windows Native)
         run: |
           powershell -Command "
