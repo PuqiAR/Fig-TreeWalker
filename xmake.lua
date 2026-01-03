@@ -7,20 +7,15 @@ target("Fig")
     set_kind("binary")
     set_languages("c++23")
 
-    if is_plat("windows") then
-        set_plat("mingw")
+    if is_plat("linux") then
+        add_cxxflags("-static-libstdc++", "-static-libgcc")
+        add_ldflags("-static")
+    elseif is_plat("mingw") then
         add_cxxflags("-static")
-        add_ldflags("-Wl,--stack,268435456")
-
-    elseif is_plat("linux") then
-        add_ldflags("-static-libstdc++", "-static-libgcc")
+        add_ldflags("-static")
     end
-
-    if is_plat("windows") then
-        set_filename("Fig.exe")
-    else
-        set_filename("Fig")
-    end
+    
+    add_ldflags("-Wl,--stack,268435456")
 
 
     add_files("src/main.cpp")
