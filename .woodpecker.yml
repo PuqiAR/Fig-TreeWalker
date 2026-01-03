@@ -7,16 +7,16 @@ steps:
     image: ubuntu:24.04
     shell: /bin/sh
     commands:
-      # 安装依赖
+      # 安装基础依赖
       - apt-get update -y
       - apt-get install -y git build-essential curl
 
-      # 安装 xmake
-      - git clone --depth=1 https://github.com/xmake-io/xmake.git /tmp/xmake
-      - cd /tmp/xmake && make install PREFIX=/usr/local
+      # 安装 xmake 官方方式
+      - curl -fsSL https://xmake.io/shget.text | bash -s -- --prefix=/usr/local
+      - export PATH=$PATH:/usr/local/bin
       - xmake --version
 
-      # 构建项目
+      # 构建 Fig
       - cd /woodpecker/src
       - xmake f -p linux -a x86_64 -m release -y
       - xmake build -y
@@ -27,7 +27,7 @@ steps:
       # 生成文件名
       - cp build/linux/x86_64/release/Fig Fig-${VERSION}-linux-x86_64
 
-      # 上传到 Gitea Release
+      # 上传 Gitea Release
       - |
         if [ -n "$GITEA_TOKEN" ]; then
           curl -X POST "https://git.fig-lang.cn/api/v1/repos/PuqiAR/Fig/releases" \
@@ -49,12 +49,12 @@ steps:
       - apt-get update -y
       - apt-get install -y git build-essential curl mingw-w64
 
-      # 安装 xmake
-      - git clone --depth=1 https://github.com/xmake-io/xmake.git /tmp/xmake
-      - cd /tmp/xmake && make install PREFIX=/usr/local
+      # 安装 xmake 官方方式
+      - curl -fsSL https://xmake.io/shget.text | bash -s -- --prefix=/usr/local
+      - export PATH=$PATH:/usr/local/bin
       - xmake --version
 
-      # 构建项目
+      # 构建 Fig Windows
       - cd /woodpecker/src
       - xmake f -p mingw -a x86_64 -m release -y
       - xmake build -y
@@ -65,7 +65,7 @@ steps:
       # 生成文件名
       - cp build/mingw/x86_64/release/Fig.exe Fig-${VERSION}-windows-x86_64.exe
 
-      # 上传到 Gitea Release
+      # 上传 Gitea Release
       - |
         if [ -n "$GITEA_TOKEN" ]; then
           curl -X POST "https://git.fig-lang.cn/api/v1/repos/PuqiAR/Fig/releases" \
