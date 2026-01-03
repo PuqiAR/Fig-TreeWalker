@@ -8,8 +8,9 @@ target("Fig")
     set_languages("c++23")
 
     if is_plat("linux") then
-        add_cxxflags("-static-libstdc++", "-static-libgcc")
-        add_ldflags("-static")
+        set_toolchains("clang")
+        add_cxxflags("-stdlib=libc++")
+        add_ldflags("-stdlib=libc++")
     elseif is_plat("mingw") then
         add_cxxflags("-static")
         add_ldflags("-static")
