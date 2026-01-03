@@ -31,14 +31,13 @@ jobs:
 
       - name: 设置版本
         run: |
-          if ('${{ github.event_name }}' -eq 'workflow_dispatch') {
-            $VERSION = '${{ inputs.version }}'
-          } else {
-            $VERSION = '${{ github.ref }}' -replace 'refs/tags/', ''
-          }
-          Write-Host "构建版本: $VERSION"
-          # Gitea Actions 设置环境变量的正确方式
-          echo "VERSION=$VERSION" >> $env:GITHUB_ENV
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            VERSION="${{ inputs.version }}"
+          else
+            VERSION="${GITHUB_REF#refs/tags/}"
+          fi
+          echo "构建版本: $VERSION"
+          echo "VERSION=$VERSION" >> $GITHUB_ENV
 
       - name: 构建项目 (Linux)
         run: |
@@ -145,16 +144,14 @@ jobs:
 
       - name: 设置版本
         run: |
-          powershell -Command "
-            if ('${{ github.event_name }}' -eq 'workflow_dispatch') {
-              `$VERSION = '${{ inputs.version }}'
-            } else {
-              `$VERSION = '${{ github.ref }}' -replace 'refs/tags/', ''
-            }
-            # 设置环境变量
-            Add-Content -Path `$env:GITHUB_ENV -Value \"VERSION=`$VERSION\"
-            Write-Host \"Windows构建版本: `$VERSION\"
-          "
+          if ('${{ github.event_name }}' -eq 'workflow_dispatch') {
+            $VERSION = '${{ inputs.version }}'
+          } else {
+            $VERSION = '${{ github.ref }}' -replace 'refs/tags/', ''
+          }
+          Write-Host "构建版本: $VERSION"
+          # Gitea Actions 设置环境变量的正确方式
+          echo "VERSION=$VERSION" >> $env:GITHUB_ENV
 
       - name: 构建项目 (Windows Native)
         run: |
