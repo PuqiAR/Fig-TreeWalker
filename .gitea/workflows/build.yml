@@ -5,101 +5,88 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: '版本号 (如：v1.0.0)'
+        description: '版本号'
         required: true
-        default: 'dev-build'
 
 jobs:
   build:
     runs-on: ubuntu
     container:
-      image: alpine:latest
-      options: >-
-        --dns 223.5.5.5
-        --dns 223.6.6.6
+      image: debian:bookworm-slim  # 自带bash和apt，比Alpine简单
 
     steps:
-      # 1. 安装依赖 (使用阿里云镜像加速)
-      - name: 安装依赖
+      # 1. 更新并安装最小工具集
+      - name: 安装工具
         run: |
-          sed -i 's|dl-cdn.alpinelinux.org|mirrors.aliyun.com|g' /etc/apk/repositories
-          apk update --no-cache
-          apk add --no-cache gcc g++ make musl-dev linux-headers curl wget tar git
-          echo "依赖安装完成"
+          apt-get update
+          apt-get install -y --no-install-recommends curl ca-certificates git make gcc g++
+          apt-get clean
           
-      # 2. 安装xmake (使用wget避免bash依赖)
+      # 2. 安装xmake（官方方式）
       - name: 安装xmake
         run: |
-          wget -q https://xmake.io/shget.text -O /tmp/xmake-install.sh
-          sh /tmp/xmake-install.sh
-          export PATH="/root/.local/bin:$PATH"
-          xmake --version
+          bash <(curl -fsSL https://xmake.io/shget.text)
+          echo "/root/.local/bin" >> $GITHUB_PATH
           
       # 3. 检出代码
       - name: 检出代码
         run: |
-          git clone https://git.fig-lang.cn/${{ github.repository }} . --depth=1
+          git clone https://git.fig-lang.cn/${{ github.repository }} .
           git checkout ${{ github.ref }}
           
       # 4. 设置版本
       - name: 设置版本
         run: |
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            echo "VERSION=${{ inputs.version }}" >> $GITHUB_ENV
+            VERSION="${{ inputs.version }}"
           else
-            echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_ENV
+            VERSION="${GITHUB_REF#refs/tags/}"
           fi
-          echo "构建版本: ${{ env.VERSION }}"
+          echo "VERSION=$VERSION" >> $GITHUB_ENV
+          echo "构建版本: $VERSION"
           
-      # 5. 构建项目
-      - name: 构建项目
+      # 5. 构建
+      - name: 构建
         run: |
           export PATH="/root/.local/bin:$PATH"
           xmake f -p linux -a x86_64 -m release -y
           xmake build -j$(nproc)
           
-      # 6. 打包文件
-      - name: 打包文件
+      # 6. 打包
+      - name: 打包
         run: |
-          PACKAGE_DIR="Fig-${{ env.VERSION }}-linux-x86_64"
-          mkdir -p "$PACKAGE_DIR"
-          cp build/linux/x86_64/release/Fig "$PACKAGE_DIR/"
+          export PATH="/root/.local/bin:$PATH"
+          DIR="Fig-${{ env.VERSION }}-linux-x86_64"
+          mkdir -p "$DIR"
+          cp build/linux/x86_64/release/Fig "$DIR/"
+          [ -d "src/Module/Library" ] && cp -r src/Module/Library "$DIR/"
+          tar -czf "$DIR.tar.gz" "$DIR"
+          sha256sum "$DIR.tar.gz" > "$DIR.sha256"
           
-          # 如果有Library目录则复制
-          if [ -d "src/Module/Library" ]; then
-            cp -r src/Module/Library "$PACKAGE_DIR/"
-          fi
-          
-          tar -czf "$PACKAGE_DIR.tar.gz" "$PACKAGE_DIR"
-          sha256sum "$PACKAGE_DIR.tar.gz" > "$PACKAGE_DIR.sha256"
-          
-      # 7. 发布到Gitea
-      - name: 发布到Gitea
+      # 7. 发布
+      - name: 发布
         env:
-          GITEA_TOKEN: ${{ secrets.CI_TOKEN }}
+          TOKEN: ${{ secrets.CI_TOKEN }}
         run: |
+          export PATH="/root/.local/bin:$PATH"
           VERSION="${{ env.VERSION }}"
-          REPO_URL="https://git.fig-lang.cn/api/v1/repos/${{ github.repository }}"
+          API="https://git.fig-lang.cn/api/v1/repos/${{ github.repository }}"
           
           # 创建发布
-          curl -sSf -X POST \
-            -H "Authorization: token $GITEA_TOKEN" \
+          curl -sS -X POST -H "Authorization: token $TOKEN" \
             -H "Content-Type: application/json" \
-            -d "{\"tag_name\":\"$VERSION\",\"name\":\"Fig $VERSION\"}" \
-            "$REPO_URL/releases" 2>/dev/null || echo "Release可能已存在"
+            -d "{\"tag_name\":\"$VERSION\"}" \
+            "$API/releases" 2>/dev/null || true
           
-          # 上传主文件
-          curl -sSf -X POST \
-            -H "Authorization: token $GITEA_TOKEN" \
+          # 上传文件
+          curl -sS -X POST -H "Authorization: token $TOKEN" \
             -H "Content-Type: application/octet-stream" \
             --data-binary @Fig-$VERSION-linux-x86_64.tar.gz \
-            "$REPO_URL/releases/$VERSION/assets?name=Fig-$VERSION-linux-x86_64.tar.gz"
+            "$API/releases/$VERSION/assets?name=Fig-$VERSION-linux-x86_64.tar.gz"
           
-          # 上传校验文件
-          curl -sSf -X POST \
-            -H "Authorization: token $GITEA_TOKEN" \
+          curl -sS -X POST -H "Authorization: token $TOKEN" \
             -H "Content-Type: text/plain" \
             --data-binary @Fig-$VERSION-linux-x86_64.sha256 \
-            "$REPO_URL/releases/$VERSION/assets?name=Fig-$VERSION-linux-x86_64.sha256"
+            "$API/releases/$VERSION/assets?name=Fig-$VERSION-linux-x86_64.sha256"
           
-          echo "✅ 发布完成！文件: Fig-$VERSION-linux-x86_64.tar.gz"
+          echo "✅ 完成！版本: $VERSION"
