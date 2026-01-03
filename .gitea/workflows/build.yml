@@ -12,102 +12,64 @@ on:
 jobs:
   build-linux-x64:
     runs-on: ubuntu
-    container:
-      image: ubuntu:22.04
-      options: --network=host
+    # 关键：不要写 container，让任务直接在宿主机上执行
 
     steps:
-      # 1. 安装基础工具（确保包含 wget）
-      - name: 安装基础工具
+      # 1. 直接使用本地镜像运行构建
+      - name: 在自定义镜像中构建
         run: |
-          apt-get update
-          # 明确安装 wget, tar, git, curl
-          apt-get install -y wget tar git curl
-          echo "基础工具（包括wget）安装完成。"
+          # 使用本地镜像启动容器，执行所有构建步骤
+          docker run --rm \
+            -v $PWD:/workspace \
+            -w /workspace \
+            git.fig-lang.cn/puqiar/fig-ci:base-latest \
+            bash -c "
+              # 克隆代码（容器内）
+              git clone 'https://git.fig-lang.cn/${{ github.repository }}' . && \
+              git checkout '${{ github.ref }}' && \
+              # 设置版本号
+              if [ '${{ github.event_name }}' = 'workflow_dispatch' ]; then
+                VERSION='${{ inputs.version }}'
+              else
+                VERSION='${GITHUB_REF#refs/tags/}'
+              fi && \
+              echo \"版本: \$VERSION\" && \
+              # 构建
+              xmake f -p linux -a x86_64 -m release -y && \
+              xmake build -j\$(nproc) && \
+              # 打包
+              PACKAGE_NAME=\"Fig-\$VERSION-linux-x86_64\" && \
+              mkdir -p \"\${PACKAGE_NAME}\" && \
+              cp build/linux/x86_64/release/Fig \"\${PACKAGE_NAME}/\" && \
+              tar -czf \"\${PACKAGE_NAME}.tar.gz\" \"\${PACKAGE_NAME}\" && \
+              sha256sum \"\${PACKAGE_NAME}.tar.gz\" > \"\${PACKAGE_NAME}.sha256\" && \
+              echo \"构建完成\"
+            "
 
-      # 2. 离线安装 xmake（关键修正步骤）
-      - name: 离线安装 xmake
-        run: |
-          echo "=== 开始从指定链接安装 xmake ==="
-          
-          # 使用已经安装好的wget下载
-          wget -O /usr/local/bin/xmake https://git.fig-lang.cn/PuqiAR/xmake-binary-copy/raw/commit/989d1f2dabb0bc8d5981a5f900c2cf7c2ac78ee4/xmake-bundle-v3.0.5.linux.x86_64
-          
-          # 赋予执行权限
-          chmod +x /usr/local/bin/xmake
-          
-          # 验证安装
-          echo "=== 验证 xmake 安装 ==="
-          /usr/local/bin/xmake --version
-          echo "=== xmake 安装完成 ==="
-
-      # 3. 检出代码
-      - name: 检出代码
-        run: |
-          git clone https://git.fig-lang.cn/${{ github.repository }} .
-          git checkout ${{ github.ref }}
-
-      # 4. 确定版本号
-      - name: 设置版本
-        run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            VERSION="${{ inputs.version }}"
-          else
-            VERSION="${GITHUB_REF#refs/tags/}"
-          fi
-          echo "构建版本: $VERSION"
-          echo "VERSION=$VERSION" >> $GITHUB_ENV
-
-      # 5. 构建项目
-      - name: 构建项目
-        run: |
-          export PATH="/usr/local/bin:$PATH"
-          echo "开始构建版本: $VERSION"
-          xmake f -p linux -a x86_64 -m release -y
-          xmake build -j$(nproc)
-          echo "构建成功。"
-
-      # 6. 打包
-      - name: 打包发布文件
-        run: |
-          export PATH="/usr/local/bin:$PATH"
-          PACKAGE_NAME="Fig-${{ env.VERSION }}-linux-x86_64"
-          mkdir -p "${PACKAGE_NAME}"
-          cp build/linux/x86_64/release/Fig "${PACKAGE_NAME}/"
-          if [ -d "src/Module/Library" ]; then
-            cp -r src/Module/Library "${PACKAGE_NAME}/"
-            echo "已包含Library目录。"
-          fi
-          tar -czf "${PACKAGE_NAME}.tar.gz" "${PACKAGE_NAME}"
-          sha256sum "${PACKAGE_NAME}.tar.gz" > "${PACKAGE_NAME}.sha256"
-          echo "打包完成，文件: ${PACKAGE_NAME}.tar.gz"
-
-      # 7. 发布到Gitea
+      # 2. 发布（在宿主机上执行，因为打包好的文件在宿主机目录里）
       - name: 发布到Gitea
         env:
           GITEA_TOKEN: ${{ secrets.CI_TOKEN }}
         run: |
-          VERSION="${{ env.VERSION }}"
-          API="https://git.fig-lang.cn/api/v1/repos/${{ github.repository }}"
+          # 确定版本号（逻辑和上面一样）
+          if [ '${{ github.event_name }}' = 'workflow_dispatch' ]; then
+            VERSION='${{ inputs.version }}'
+          else
+            VERSION='${GITHUB_REF#refs/tags/}'
+          fi
           
-          echo "正在创建版本 $VERSION ..."
+          API=\"https://git.fig-lang.cn/api/v1/repos/${{ github.repository }}\"
           
-          # 创建发布
-          curl -sS -X POST -H "Authorization: token $GITEA_TOKEN" \
-            -H "Content-Type: application/json" \
-            -d "{\"tag_name\":\"$VERSION\",\"name\":\"Fig $VERSION\",\"draft\":false,\"prerelease\":false}" \
-            "$API/releases"
-          
-          # 上传二进制包
-          curl -sS -X POST -H "Authorization: token $GITEA_TOKEN" \
-            -H "Content-Type: application/octet-stream" \
-            --data-binary @Fig-$VERSION-linux-x86_64.tar.gz \
-            "$API/releases/$VERSION/assets?name=Fig-$VERSION-linux-x86_64.tar.gz"
+          # 上传发布包
+          curl -sS -X POST -H \"Authorization: token $GITEA_TOKEN\" \
+            -H \"Content-Type: application/octet-stream\" \
+            --data-binary @Fig-\$VERSION-linux-x86_64.tar.gz \
+            \"\$API/releases/\$VERSION/assets?name=Fig-\$VERSION-linux-x86_64.tar.gz\"
           
           # 上传校验文件
-          curl -sS -X POST -H "Authorization: token $GITEA_TOKEN" \
-            -H "Content-Type: text/plain" \
-            --data-binary @Fig-$VERSION-linux-x86_64.sha256 \
-            "$API/releases/$VERSION/assets?name=Fig-$VERSION-linux-x86_64.sha256"
+          curl -sS -X POST -H \"Authorization: token $GITEA_TOKEN\" \
+            -H \"Content-Type: text/plain\" \
+            --data-binary @Fig-\$VERSION-linux-x86_64.sha256 \
+            \"\$API/releases/\$VERSION/assets?name=Fig-\$VERSION-linux-x86_64.sha256\"
           
-          echo "✅ 发布完成！"
+          echo \"✅ 发布完成！\"
