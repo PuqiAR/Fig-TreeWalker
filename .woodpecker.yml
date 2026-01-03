@@ -1,77 +1,70 @@
-steps:
+# .woodpecker.yml
+# Auto-build Fig only on new git tags
+# Linux + Windows cross-build using xmake
+# Output files: Fig-version-plat-arch
+# Upload release to Gitea automatically
 
-  # -------------------------------
-  # Linux Build
-  # -------------------------------
+kind: pipeline
+name: tag-build
+
+trigger:
+  event:
+    - tag   # 只在 tag 创建时触发
+
+steps:
+  - name: setup
+    image: ubuntu:24.04
+    shell: /bin/sh
+    commands:
+      - apt-get update -y
+      - DEBIAN_FRONTEND=noninteractive apt-get install -y git curl build-essential mingw-w64 python3 zip
+      - curl -fsSL https://xmake.io/shget.text | bash
+      - export PATH=$HOME/.xmake/bin:$PATH
+      - xmake --version
+
   - name: build-linux
     image: ubuntu:24.04
     shell: /bin/sh
     commands:
-      # 安装基础依赖
-      - apt-get update -y
-      - apt-get install -y git build-essential curl
-
-      # 安装 xmake 官方方式
-      - curl -fsSL https://xmake.io/shget.text | bash -s -- --prefix=/usr/local
-      - export PATH=$PATH:/usr/local/bin
-      - xmake --version
-
-      # 构建 Fig
-      - cd /woodpecker/src
+      - export PATH=$HOME/.xmake/bin:$PATH
+      - TAG_VERSION=${DRONE_TAG#v}   # 去掉前缀 v
       - xmake f -p linux -a x86_64 -m release -y
-      - xmake build -y
+      - xmake b -y
+      - mv build/linux/x86_64/release/Fig "Fig-${TAG_VERSION}-linux-x86_64"
 
-      # 获取版本号
-      - VERSION=$(grep -R "__FCORE_VERSION" src/Core/core.hpp | sed -E 's/.*"(.+)".*/\1/')
-
-      # 生成文件名
-      - cp build/linux/x86_64/release/Fig Fig-${VERSION}-linux-x86_64
-
-      # 上传 Gitea Release
-      - |
-        if [ -n "$GITEA_TOKEN" ]; then
-          curl -X POST "https://git.fig-lang.cn/api/v1/repos/PuqiAR/Fig/releases" \
-            -H "Authorization: token $GITEA_TOKEN" \
-            -F "tag_name=${VERSION}" \
-            -F "name=Fig-${VERSION}-linux-x86_64" \
-            -F "body=Linux x86_64 release" \
-            -F "assets=@Fig-${VERSION}-linux-x86_64"
-        fi
-
-  # -------------------------------
-  # Windows Build (cross compile)
-  # -------------------------------
   - name: build-windows
     image: ubuntu:24.04
     shell: /bin/sh
     commands:
-      # 安装依赖
-      - apt-get update -y
-      - apt-get install -y git build-essential curl mingw-w64
-
-      # 安装 xmake 官方方式
-      - curl -fsSL https://xmake.io/shget.text | bash -s -- --prefix=/usr/local
-      - export PATH=$PATH:/usr/local/bin
-      - xmake --version
-
-      # 构建 Fig Windows
-      - cd /woodpecker/src
+      - export PATH=$HOME/.xmake/bin:$PATH
+      - TAG_VERSION=${DRONE_TAG#v}
       - xmake f -p mingw -a x86_64 -m release -y
-      - xmake build -y
+      - xmake b -y
+      - mv build/mingw/x86_64/release/Fig.exe "Fig-${TAG_VERSION}-windows-x86_64.exe"
 
-      # 获取版本号
-      - VERSION=$(grep -R "__FCORE_VERSION" src/Core/core.hpp | sed -E 's/.*"(.+)".*/\1/')
-
-      # 生成文件名
-      - cp build/mingw/x86_64/release/Fig.exe Fig-${VERSION}-windows-x86_64.exe
-
-      # 上传 Gitea Release
-      - |
-        if [ -n "$GITEA_TOKEN" ]; then
-          curl -X POST "https://git.fig-lang.cn/api/v1/repos/PuqiAR/Fig/releases" \
-            -H "Authorization: token $GITEA_TOKEN" \
-            -F "tag_name=${VERSION}" \
-            -F "name=Fig-${VERSION}-windows-x86_64.exe" \
-            -F "body=Windows x86_64 release" \
-            -F "assets=@Fig-${VERSION}-windows-x86_64.exe"
+  - name: release
+    image: alpine:latest
+    shell: /bin/sh
+    commands:
+      - apk add --no-cache curl jq
+      - TAG_VERSION=${DRONE_TAG#v}
+      # 获取 Gitea release ID，如果没有就创建
+      - RELEASE_JSON=$(curl -s -H "Authorization: token ${GITEA_TOKEN}" \
+            "https://git.fig-lang.cn/api/v1/repos/PuqiAR/Fig/releases/tags/${TAG_VERSION}" || true)
+      - if [ "$(echo "$RELEASE_JSON" | jq -r .id)" = "null" ]; then
+          curl -s -X POST -H "Content-Type: application/json" \
+          -H "Authorization: token ${GITEA_TOKEN}" \
+          -d "{\"tag_name\":\"${DRONE_TAG}\",\"name\":\"${TAG_VERSION}\",\"draft\":false,\"prerelease\":false}" \
+          https://git.fig-lang.cn/api/v1/repos/PuqiAR/Fig/releases;
         fi
+      - RELEASE_ID=$(curl -s -H "Authorization: token ${GITEA_TOKEN}" \
+          "https://git.fig-lang.cn/api/v1/repos/PuqiAR/Fig/releases/tags/${TAG_VERSION}" | jq -r .id)
+      # 上传 Linux & Windows 构建产物
+      - curl -X POST -H "Content-Type: multipart/form-data" \
+          -F "file=@Fig-${TAG_VERSION}-linux-x86_64" \
+          -H "Authorization: token ${GITEA_TOKEN}" \
+          "https://git.fig-lang.cn/api/v1/repos/PuqiAR/Fig/releases/${RELEASE_ID}/assets"
+      - curl -X POST -H "Content-Type: multipart/form-data" \
+          -F "file=@Fig-${TAG_VERSION}-windows-x86_64.exe" \
+          -H "Authorization: token ${GITEA_TOKEN}" \
+          "https://git.fig-lang.cn/api/v1/repos/PuqiAR/Fig/releases/${RELEASE_ID}/assets"
