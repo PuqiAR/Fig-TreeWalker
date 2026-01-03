@@ -9,13 +9,19 @@ target("Fig")
 
     if is_plat("windows") then
         set_plat("mingw")
+        add_cxxflags("-static")
+        add_ldflags("-Wl,--stack,268435456")
+
+    elseif is_plat("linux") then
+        add_ldflags("-static-libstdc++", "-static-libgcc")
     end
 
-    if is_plat("mingw") then
-        add_cxxflags("-static")
-        add_cxxflags("-stdlib=libc++")
-        add_ldflags("-Wl,--stack,268435456")
+    if is_plat("windows") then
+        set_filename("Fig.exe")
+    else
+        set_filename("Fig")
     end
+
 
     add_files("src/main.cpp")
     add_files("src/Core/warning.cpp")
