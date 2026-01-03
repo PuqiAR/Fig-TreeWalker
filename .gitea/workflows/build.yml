@@ -87,19 +87,12 @@ jobs:
           echo "✅ Linux版本发布完成！"
 
   build-windows-x64:
-    runs-on: ubuntu
-    container:
-      image: git.fig-lang.cn/puqiar/fig-ci:base-latest
-      options: --network=host
+    # 关键：指定运行在带有 windows 标签的 Runner 上
+    runs-on: windows
+    # 移除 container 配置，因为将在宿主机直接运行
+    # container: ...  # 删除这整个 container 部分
 
     steps:
-      - name: 验证环境
-        run: |
-          echo "=== Windows构建环境验证 ==="
-          xmake --version
-          clang++ --version | head -1
-          echo "环境就绪。"
-
       - name: 检出代码
         run: |
           git clone https://git.fig-lang.cn/${{ github.repository }} .
@@ -112,40 +105,34 @@ jobs:
           else
             VERSION="${GITHUB_REF#refs/tags/}"
           fi
+          echo "VERSION=$VERSION" >> $env:GITHUB_ENV
           echo "Windows构建版本: $VERSION"
-          echo "VERSION=$VERSION" >> $GITHUB_ENV
 
-      - name: 构建项目 (Windows x64)
+      - name: 安装 xmake (Windows)
         run: |
-          echo "开始交叉编译Windows版本..."
-          # 关键：使用mingw平台，指定clang工具链进行交叉编译
-          xmake f -p mingw -a x86_64 -m release -y --toolchain=clang
-          xmake build -j$(nproc)
-          echo "Windows构建成功。"
+          # 这里可以是你预先准备好的离线包，或从你的Gitea下载
+          # 例如，如果你已将 xmake Windows 版放在仓库中
+          # 或者，使用简单的网络下载（确保Runner能访问）
+          curl -fsSL https://xmake.io/shget.text -o xmake.ps1
+          powershell -ExecutionPolicy Bypass -File xmake.ps1
+
+      - name: 构建项目 (Windows Native)
+        run: |
+          xmake f -p windows -a x86_64 -m release -y
+          xmake build -j${env:NUMBER_OF_PROCESSORS}
 
       - name: 打包Windows发布文件
         run: |
-          PACKAGE_NAME="Fig-${{ env.VERSION }}-windows-x86_64"
-          mkdir -p "${PACKAGE_NAME}"
-          # 注意：Windows可执行文件路径，根据你的xmake配置调整
-          # 尝试多种可能的输出路径
-          if [ -f "build/mingw/x86_64/release/Fig.exe" ]; then
-            cp build/mingw/x86_64/release/Fig.exe "${PACKAGE_NAME}/"
-          elif [ -f "build/mingw/x86_64/release/Fig" ]; then
-            cp build/mingw/x86_64/release/Fig "${PACKAGE_NAME}/Fig.exe"
-          else
-            echo "错误：未找到Windows构建输出文件"
-            find build/ -name "Fig*" -type f | head -5
-            exit 1
-          fi
-          
-          if [ -d "src/Module/Library" ]; then
-            cp -r src/Module/Library "${PACKAGE_NAME}/"
-          fi
-          zip -r "${PACKAGE_NAME}.zip" "${PACKAGE_NAME}"
-          sha256sum "${PACKAGE_NAME}.zip" > "${PACKAGE_NAME}.sha256"
-          echo "Windows打包完成: ${PACKAGE_NAME}.zip"
-
+          $VERSION = $env:VERSION
+          $PACKAGE_NAME = "Fig-${VERSION}-windows-x86_64"
+          New-Item -ItemType Directory -Force -Path $PACKAGE_NAME
+          Copy-Item build\windows\x86_64\release\Fig.exe $PACKAGE_NAME\
+          if (Test-Path "src\Module\Library") {
+            Copy-Item -Recurse src\Module\Library $PACKAGE_NAME\
+          }
+          Compress-Archive -Path $PACKAGE_NAME -DestinationPath "${PACKAGE_NAME}.zip"
+          Get-FileHash "${PACKAGE_NAME}.zip" -Algorithm SHA256 | Out-File "${PACKAGE_NAME}.sha256"
+          echo "Windows打包完成."
       - name: 发布Windows版本到Gitea
         env:
           GITEA_TOKEN: ${{ secrets.CI_TOKEN }}
