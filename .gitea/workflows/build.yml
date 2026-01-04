@@ -61,7 +61,7 @@ jobs:
           # 安装依赖并构建
           pip install --upgrade pip
           pip install -r requirements.txt
-          python3 -m PyInstaller -F -n fig-setup --distpath ./dist/linux main.py
+          python3 -m PyInstaller -F -n FigSetup-Linux --distpath ./dist/linux main.py
           echo "Linux安装器构建完成"
 
       - name: 打包Linux发布文件
@@ -119,12 +119,12 @@ jobs:
             "$API/releases/$RELEASE_ID/assets?name=Fig-$VERSION-linux-x86_64.sha256"
           
           # 🔧 新增：上传Linux安装器
-          if [ -f "Installer/ConsoleInstaller/dist/linux/fig-setup" ]; then
+          if [ -f "Installer/ConsoleInstaller/dist/linux/FigSetup-Linux" ]; then
             echo "正在上传Linux安装器..."
             curl -sS -X POST -H "Authorization: token $GITEA_TOKEN" \
               -H "Content-Type: application/octet-stream" \
-              --data-binary @Installer/ConsoleInstaller/dist/linux/fig-setup \
-              "$API/releases/$RELEASE_ID/assets?name=fig-setup"
+              --data-binary @Installer/ConsoleInstaller/dist/linux/FigSetup-Linux \
+              "$API/releases/$RELEASE_ID/assets?name=FigSetup-Linux"
           fi
           
           echo "✅ Linux版本发布完成！"
@@ -242,43 +242,77 @@ jobs:
           $API = "https://git.fig-lang.cn/api/v1/repos/$REPO"
           $TOKEN = $env:GITEA_TOKEN
           
-          Write-Host "正在上传Windows版本到发布 $VERSION ..."
+          # 🔧 新增：检查必需的文件是否存在
+          $ZIP_FILE = "Fig-$VERSION-windows-x86_64.zip"
+          $HASH_FILE = "Fig-$VERSION-windows-x86_64.sha256"
+          $INSTALLER_PATH = "Installer\ConsoleInstaller\dist\windows\FigSetup.exe"
           
-          # 1. 尝试通过标签获取 Release ID
-          $RELEASE_RESPONSE = Invoke-RestMethod -Uri "$API/releases/tags/$VERSION" -Headers @{Authorization = "token $TOKEN" } -ErrorAction SilentlyContinue
-          if ($RELEASE_RESPONSE -and $RELEASE_RESPONSE.id) {
-            $RELEASE_ID = $RELEASE_RESPONSE.id
-            Write-Host "找到已有发布 ID: $RELEASE_ID"
+          if (-not (Test-Path $ZIP_FILE)) {
+            Write-Host "❌ 错误：找不到ZIP文件 $ZIP_FILE"
+            Get-ChildItem *.zip
+            exit 1
+          }
+          
+          Write-Host "正在为Windows版本创建/更新发布 $VERSION ..."
+          
+          # 🔧 关键修改：直接创建发布，不先检查（与Linux逻辑一致）
+          $CREATE_BODY = @{
+            tag_name = $VERSION
+            name = "Fig $VERSION"
+            draft = $false
+            prerelease = $false
+          } | ConvertTo-Json -Compress
+          
+          Write-Host "创建发布请求体: $CREATE_BODY"
+          
+          # 直接创建发布（Gitea会自动处理重复创建）
+          $RESPONSE = Invoke-RestMethod -Method Post -Uri "$API/releases" `
+            -Headers @{
+              Authorization = "token $TOKEN"
+              'Content-Type' = 'application/json'
+            } -Body $CREATE_BODY -ErrorAction SilentlyContinue
+          
+          if (-not $RESPONSE -or -not $RESPONSE.id) {
+            # 如果创建失败，尝试通过标签获取已有发布的ID
+            Write-Host "创建失败，尝试获取已有发布..."
+            $RESPONSE = Invoke-RestMethod -Uri "$API/releases/tags/$VERSION" `
+              -Headers @{Authorization = "token $TOKEN" } `
+              -ErrorAction SilentlyContinue
+          }
+          
+          if ($RESPONSE -and $RESPONSE.id) {
+            $RELEASE_ID = $RESPONSE.id
+            Write-Host "✅ 使用发布 ID: $RELEASE_ID 进行上传"
           } else {
-            # 如果不存在，则创建新发布
-            Write-Host '发布不存在，正在创建...'
-            $CREATE_BODY = @{tag_name = $VERSION; name = "Fig $VERSION"; draft = $false; prerelease = $false } | ConvertTo-Json
-            $CREATE_RESPONSE = Invoke-RestMethod -Method Post -Uri "$API/releases" -Headers @{Authorization = "token $TOKEN"; 'Content-Type' = 'application/json' } -Body $CREATE_BODY
-            if ($CREATE_RESPONSE -and $CREATE_RESPONSE.id) {
-              $RELEASE_ID = $CREATE_RESPONSE.id
-              Write-Host "创建新发布 ID: $RELEASE_ID"
-            } else {
-              Write-Host '错误：无法获取或创建发布'
-              exit 1
-            }
+            Write-Host "❌ 错误：无法获取或创建发布 ID"
+            exit 1
           }
           
-          # 2. 使用 Release ID 上传资产
-          Write-Host '正在上传 ZIP 文件...'
-          Invoke-RestMethod -Method Post -Uri "$API/releases/$RELEASE_ID/assets?name=Fig-$VERSION-windows-x86_64.zip" -Headers @{Authorization = "token $TOKEN"; 'Content-Type' = 'application/octet-stream' } -InFile "Fig-$VERSION-windows-x86_64.zip"
+          # 上传资产
+          Write-Host "正在上传 ZIP 文件..."
+          Invoke-RestMethod -Method Post -Uri "$API/releases/$RELEASE_ID/assets?name=$ZIP_FILE" `
+            -Headers @{
+              Authorization = "token $TOKEN"
+              'Content-Type' = 'application/octet-stream'
+            } -InFile $ZIP_FILE -ErrorAction SilentlyContinue
           
-          Write-Host '正在上传校验文件...'
-          Invoke-RestMethod -Method Post -Uri "$API/releases/$RELEASE_ID/assets?name=Fig-$VERSION-windows-x86_64.sha256" -Headers @{Authorization = "token $TOKEN"; 'Content-Type' = 'text/plain' } -InFile "Fig-$VERSION-windows-x86_64.sha256"
+          Write-Host "正在上传校验文件..."
+          Invoke-RestMethod -Method Post -Uri "$API/releases/$RELEASE_ID/assets?name=$HASH_FILE" `
+            -Headers @{
+              Authorization = "token $TOKEN"
+              'Content-Type' = 'text/plain'
+            } -InFile $HASH_FILE -ErrorAction SilentlyContinue
           
-          # 🔧 新增：上传Windows安装器
-          $InstallerPath = "Installer\ConsoleInstaller\dist\windows\FigSetup.exe"
-          if (Test-Path $InstallerPath) {
-              Write-Host '正在上传Windows安装器...'
-              Invoke-RestMethod -Method Post -Uri "$API/releases/$RELEASE_ID/assets?name=FigSetup.exe" `
-                -Headers @{
-                  Authorization = "token $TOKEN"
-                  'Content-Type' = 'application/octet-stream'
-                } -InFile $InstallerPath
+          # 上传Windows安装器
+          if (Test-Path $INSTALLER_PATH) {
+            Write-Host "正在上传Windows安装器..."
+            Invoke-RestMethod -Method Post -Uri "$API/releases/$RELEASE_ID/assets?name=FigSetup.exe" `
+              -Headers @{
+                Authorization = "token $TOKEN"
+                'Content-Type' = 'application/octet-stream'
+              } -InFile $INSTALLER_PATH -ErrorAction SilentlyContinue
+          } else {
+            Write-Host "⚠️  警告：未找到安装器文件 $INSTALLER_PATH"
           }
           
-          Write-Host '✅ Windows版本发布完成！'
+          Write-Host "✅ Windows版本发布完成！"
