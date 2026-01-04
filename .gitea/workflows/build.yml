@@ -54,7 +54,7 @@ jobs:
           cd Installer/ConsoleInstaller
 
           python3 -m venv venv
-          source venv/bin/activate
+          . venv/bin/activate
 
           pip config set global.index-url https://mirrors.tuna.tsinghua.edu.cn/pypi/web/simple
 
