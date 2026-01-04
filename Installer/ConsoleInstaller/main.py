@@ -9,7 +9,7 @@ import json
 import zipfile
 import platform
 from os import path as ospath
-from os import mkdir,chdir
+from os import mkdir,chdir,remove,rename
 
 from sys import exit, argv
 
@@ -49,12 +49,7 @@ def getReleases():
     # print(rel)
     return rel
 
-def install(url, path:str) -> None:
-    if not ospath.exists(path):
-        mkdir(path)
-    
-    filename = path.split('/')[-1]
-    
+def install(url, path:str, filename:str) -> None:
     response = requests.get(url, stream=True)
     total_size = int(response.headers.get('content-length', 0))
     
@@ -64,12 +59,29 @@ def install(url, path:str) -> None:
                 f.write(data)
                 b.update(len(data))
     
+    print()
     print(f'{filename} download completed.')
     print(f'unziping to {path} ...')
+    destZipPath = ospath.dirname(path)
     with zipfile.ZipFile(filename) as zip:
-        zip.extractall(path)
-    
+        zip.extractall(destZipPath) # 解压到安装目录上一层
+        
+    rename(ospath.join(destZipPath, ospath.splitext(filename)[0]), path)
+    print()
     print('unziping completed')
+    print('\n==========')
+    print('cleaning...')
+    remove(filename)
+    
+def osEnumToStr(os: int) -> str:
+    if os == Windows:
+        return 'windows'
+    elif os == Linux:
+        return 'linux'
+    elif os == Darwin:
+        return 'darwin'
+    
+    return 'other'
     
 
 def main() -> None:
@@ -84,7 +96,7 @@ def main() -> None:
     print(f'Install to (default: {dpath}): ', end='')
 
     path = input()
-    if path.isspace():
+    if not path:
         path = dpath
     print()
         
@@ -97,7 +109,7 @@ def main() -> None:
         print('No version has been released!')
         exit(0)
     
-    print('There are {} versions:' % len(releases))
+    print(f'There are {len(releases)} versions:')
     i = 1
     for release in releases:
         print(f"    {i} {release['name']} - {release['body']}")
@@ -114,8 +126,7 @@ def main() -> None:
     print()
     
     version = insVersion
-    if not usrInput.isspace():
-  
+    if usrInput:
         if '.' in usrInput:
             for release in releases:
                 if release['tag_name'].find(usrInput) != -1:
@@ -135,13 +146,15 @@ def main() -> None:
     print(f"Installing Fig-{version['tag_name']}")
     
     url = None
+    assetName = None
     for asset in version['assets']:
-        if asset['name'].find(osName) != -1:
+        assetName = asset['name']
+        if assetName.find(osEnumToStr(osName)) != -1 and assetName.find('.zip') != -1:
             url = asset['browser_download_url']
             break
     
     if url:
-        install(url, path)
+        install(url, path, assetName)
     else:
         print('Could not find artifact:')
         print(version['assets'])

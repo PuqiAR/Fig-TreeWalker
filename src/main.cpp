@@ -49,10 +49,10 @@ int main(int argc, char **argv)
     program.add_argument("source")
         .help("source file to be interpreted")
         .default_value(std::string(""));
-    program.add_argument("-v", "--version")
-        .help("get the version of Fig Interpreter")
-        .default_value(false)
-        .implicit_value(true);
+    // program.add_argument("-v", "--version")
+    //     .help("get the version of Fig Interpreter")
+    //     .default_value(false)
+    //     .implicit_value(true);
     // interpreter
 
     try
@@ -64,11 +64,11 @@ int main(int argc, char **argv)
         std::cerr << e.what() << '\n';
         return 1;
     }
-    if (program.get<bool>("--version"))
-    {
-        std::print("Fig Interpreter version {}\n", Fig::Core::VERSION);
-        return 0;
-    }
+    // if (program.get<bool>("--version"))
+    // {
+    //     std::print("Fig Interpreter version {}\n", Fig::Core::VERSION);
+    //     return 0;
+    // }
     Fig::FString sourcePath(program.get<std::string>("source"));
     if (sourcePath.empty())
     {
