@@ -348,25 +348,21 @@ namespace Fig
         {
             UTF8Char ch = *it;
 
-            // 数字或e（原代码允许e在数字中间）
             if (ch.isDigit() || ch == U'e')
             {
                 numStr += ch.getString();
                 next();
             }
-            // 负号：只有当后面还有字符且不是数字结尾时才处理
             else if (ch == U'-' && !numStr.empty() && (numStr.ends_with(U'e') || numStr.ends_with(U'E')))
             {
                 numStr += ch.getString();
                 next();
             }
-            // 正号：同上
             else if (ch == U'+' && !numStr.empty() && (numStr.ends_with(U'e') || numStr.ends_with(U'E')))
             {
                 numStr += ch.getString();
                 next();
             }
-            // 小数点：只能有一个
             else if (ch == U'.' && !hasPoint)
             {
                 hasPoint = true;
@@ -378,11 +374,8 @@ namespace Fig
                 break;
             }
         }
-
-        // 检查合法性
         if (numStr.empty()) { return IllegalTok; }
 
-        // 检查以e结尾的情况
         if (numStr.ends_with(U'e'))
         {
             error = SyntaxError(
@@ -390,7 +383,6 @@ namespace Fig
             return IllegalTok;
         }
 
-        // 检查是否至少有一个数字
         bool hasDigit = false;
         for (auto it = numStr.begin(); it != numStr.end(); ++it)
         {
@@ -408,11 +400,9 @@ namespace Fig
             return IllegalTok;
         }
 
-        // 检查科学计数法格式：e后面必须有数字
         size_t ePos = numStr.find(U'e');
         if (ePos != FString::npos)
         {
-            // e不能在开头
             if (ePos == 0)
             {
                 error = SyntaxError(FString(std::format("Illegal number literal: {}", numStr.toBasicString())),
@@ -420,8 +410,6 @@ namespace Fig
                                     it.column());
                 return IllegalTok;
             }
-
-            // e后面必须有内容
             if (ePos + 1 >= numStr.length())
             {
                 error = SyntaxError(FString(std::format("Illegal number literal: {}", numStr.toBasicString())),
@@ -429,15 +417,12 @@ namespace Fig
                                     it.column());
                 return IllegalTok;
             }
-
-            // 检查e后面的部分
             bool hasDigitAfterE = false;
             for (size_t i = ePos + 1; i < numStr.length(); ++i)
             {
                 UTF8Char c = std::u8string(1,numStr[i]);
                 if (c == U'+' || c == U'-')
                 {
-                    // 符号只能紧跟在e后面
                     if (i != ePos + 1)
                     {
                         error = SyntaxError(FString(std::format("Illegal number literal: {}", numStr.toBasicString())),
@@ -451,7 +436,6 @@ namespace Fig
                 if (c.isDigit()) { hasDigitAfterE = true; }
                 else
                 {
-                    // e后面只能有符号和数字
                     error = SyntaxError(FString(std::format("Illegal number literal: {}", numStr.toBasicString())),
                                         this->line,
                                         it.column());
