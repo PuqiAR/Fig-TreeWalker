@@ -22,6 +22,7 @@
 #include <filesystem>
 #include <fstream>
 #include <memory>
+#include <unordered_map>
 
 namespace Fig
 {
@@ -40,8 +41,8 @@ namespace Fig
     }
     LvObject Evaluator::evalMemberExpr(Ast::MemberExpr me, ContextPtr ctx)
     {
-        LvObject base = evalLv(me->base, ctx);
-        RvObject baseVal = base.get();
+        // LvObject base = evalLv(me->base, ctx);
+        RvObject baseVal = eval(me->base, ctx);
         const FString &member = me->member;
         if (baseVal->getTypeInfo() == ValueType::Module)
         {
@@ -194,25 +195,26 @@ namespace Fig
         switch (exp->getType())
         {
             case AstType::VarExpr: {
-                Ast::VarExpr var = std::dynamic_pointer_cast<Ast::VarExprAst>(exp);
+                Ast::VarExpr var = std::static_pointer_cast<Ast::VarExprAst>(exp);
                 assert(var != nullptr);
                 return evalVarExpr(var, ctx);
             }
             case AstType::MemberExpr: {
-                Ast::MemberExpr me = std::dynamic_pointer_cast<Ast::MemberExprAst>(exp);
+                Ast::MemberExpr me = std::static_pointer_cast<Ast::MemberExprAst>(exp);
                 assert(me != nullptr);
                 return evalMemberExpr(me, ctx);
             }
             case AstType::IndexExpr: {
-                Ast::IndexExpr ie = std::dynamic_pointer_cast<Ast::IndexExprAst>(exp);
+                Ast::IndexExpr ie = std::static_pointer_cast<Ast::IndexExprAst>(exp);
                 assert(ie != nullptr);
                 return evalIndexExpr(ie, ctx);
             }
             default: {
-                throw EvaluatorError(
-                    u8"TypeError",
-                    std::format("Expression '{}' doesn't refer to a lvalue", exp->typeName().toBasicString()),
-                    exp);
+                // throw EvaluatorError(
+                //     u8"TypeError",
+                //     std::format("Expression '{}' doesn't refer to a lvalue", exp->typeName().toBasicString()),
+                //     exp);
+                
             }
         }
     }
@@ -298,6 +300,9 @@ namespace Fig
                 ObjectPtr lhs = eval(lexp, ctx);
                 ObjectPtr rhs = eval(rexp, ctx);
 
+                const TypeInfo &lhsType = lhs->getTypeInfo();
+                const TypeInfo &rhsType = rhs->getTypeInfo();
+
                 if (lhs->is<StructInstance>() && rhs->is<StructType>())
                 {
                     const StructInstance &si = lhs->as<StructInstance>();
@@ -310,10 +315,37 @@ namespace Fig
                     const InterfaceType &it = rhs->as<InterfaceType>();
                     return std::make_shared<Object>(implements(si.parentType, it.type, ctx));
                 }
+
+                if (ValueType::isTypeBuiltin(lhsType) && rhsType == ValueType::StructType) 
+                {
+                    const StructType &st = rhs->as<StructType>();
+                    const TypeInfo &type = st.type;
+                    /*
+                        如果是内置类型(e.g. Int, String)
+                        那么 eval出来String这个字，出来的是StructType
+                        而出来的StructType.type就不会是一个独立的TypeInfo,而是内置的ValueType::String
+                        依次我们可以判断内置类型
+
+                        e.g:
+                            "123" is String
+                              L   OP    R
+                            
+                        其中 L 类型为 String
+                        而 R 类型为 StructType (builtins.hpp) 中注册
+                        拿到 R 的 StructType, 其中的 type 为 String
+                    */
+                    if (lhs->getTypeInfo() == type)
+                    {
+                        return Object::getTrueInstance();
+                    }
+                    return Object::getFalseInstance();
+                }
+
                 throw EvaluatorError(
                     u8"TypeError",
-                    std::format("Operator `is` requires an struct instance on left-hand side, got '{}'",
-                                lhs->getTypeInfo().toString().toBasicString()),
+                    std::format("Unsupported operator `is` for '{}' && '{}'",
+                                lhsType.toString().toBasicString(),
+                                rhsType.toString().toBasicString()),
                     bin->lexp);
             }
 
@@ -606,27 +638,27 @@ namespace Fig
         switch (type)
         {
             case AstType::ValueExpr: {
-                auto val = std::dynamic_pointer_cast<Ast::ValueExprAst>(exp);
+                auto val = std::static_pointer_cast<Ast::ValueExprAst>(exp);
                 assert(val != nullptr);
                 return val->val;
             }
             case AstType::VarExpr: {
-                auto varExpr = std::dynamic_pointer_cast<Ast::VarExprAst>(exp);
+                auto varExpr = std::static_pointer_cast<Ast::VarExprAst>(exp);
                 assert(varExpr != nullptr);
                 return evalVarExpr(varExpr, ctx).get(); // LvObject -> RvObject
             }
             case AstType::BinaryExpr: {
-                auto bin = std::dynamic_pointer_cast<Ast::BinaryExprAst>(exp);
+                auto bin = std::static_pointer_cast<Ast::BinaryExprAst>(exp);
                 assert(bin != nullptr);
                 return evalBinary(bin, ctx);
             }
             case AstType::UnaryExpr: {
-                auto un = std::dynamic_pointer_cast<Ast::UnaryExprAst>(exp);
+                auto un = std::static_pointer_cast<Ast::UnaryExprAst>(exp);
                 assert(un != nullptr);
                 return evalUnary(un, ctx);
             }
             case AstType::TernaryExpr: {
-                auto te = std::dynamic_pointer_cast<Ast::TernaryExprAst>(exp);
+                auto te = std::static_pointer_cast<Ast::TernaryExprAst>(exp);
                 assert(te != nullptr);
                 return evalTernary(te, ctx);
             }
@@ -634,7 +666,7 @@ namespace Fig
             case AstType::IndexExpr: return evalLv(exp, ctx).get();
 
             case AstType::FunctionCall: {
-                auto fnCall = std::dynamic_pointer_cast<Ast::FunctionCallExpr>(exp);
+                auto fnCall = std::static_pointer_cast<Ast::FunctionCallExpr>(exp);
                 assert(fnCall != nullptr);
 
                 Ast::Expression callee = fnCall->callee;
@@ -659,7 +691,7 @@ namespace Fig
                 return evalFunctionCall(fn, fnCall->arg, fnName, ctx);
             }
             case AstType::FunctionLiteralExpr: {
-                auto fnLiteral = std::dynamic_pointer_cast<Ast::FunctionLiteralExprAst>(exp);
+                auto fnLiteral = std::static_pointer_cast<Ast::FunctionLiteralExprAst>(exp);
                 assert(fnLiteral != nullptr);
 
                 Ast::BlockStatement body = nullptr;
@@ -689,7 +721,7 @@ namespace Fig
                 return std::make_shared<Object>(std::move(fn));
             }
             case AstType::InitExpr: {
-                auto initExpr = std::dynamic_pointer_cast<Ast::InitExprAst>(exp);
+                auto initExpr = std::static_pointer_cast<Ast::InitExprAst>(exp);
                 LvObject structeLv = evalLv(initExpr->structe, ctx);
                 ObjectPtr structTypeVal = structeLv.get();
                 const FString &structName = structeLv.name();
@@ -968,7 +1000,7 @@ namespace Fig
             }
 
             case AstType::ListExpr: {
-                auto lstExpr = std::dynamic_pointer_cast<Ast::ListExprAst>(exp);
+                auto lstExpr = std::static_pointer_cast<Ast::ListExprAst>(exp);
                 assert(lstExpr != nullptr);
 
                 List list;
@@ -977,7 +1009,7 @@ namespace Fig
             }
 
             case AstType::MapExpr: {
-                auto mapExpr = std::dynamic_pointer_cast<Ast::MapExprAst>(exp);
+                auto mapExpr = std::static_pointer_cast<Ast::MapExprAst>(exp);
                 assert(mapExpr != nullptr);
 
                 Map map;
@@ -985,7 +1017,12 @@ namespace Fig
                 return std::make_shared<Object>(std::move(map));
             }
 
-            default: assert(false);
+            default:
+            {
+                throw RuntimeError(FString(
+                    std::format("err type of expr: {}", magic_enum::enum_name(type))
+                ));
+            }
         }
         return Object::getNullInstance(); // ignore warning
     }
@@ -1005,12 +1042,12 @@ namespace Fig
         switch (stmt->getType())
         {
             case ImportSt: {
-                auto i = std::dynamic_pointer_cast<Ast::ImportSt>(stmt);
+                auto i = std::static_pointer_cast<Ast::ImportSt>(stmt);
                 assert(i != nullptr);
                 return evalImportSt(i, ctx);
             }
             case VarDefSt: {
-                auto varDef = std::dynamic_pointer_cast<Ast::VarDefAst>(stmt);
+                auto varDef = std::static_pointer_cast<Ast::VarDefAst>(stmt);
                 assert(varDef != nullptr);
 
                 if (ctx->containsInThisScope(varDef->name))
@@ -1051,7 +1088,7 @@ namespace Fig
             }
 
             case FunctionDefSt: {
-                auto fnDef = std::dynamic_pointer_cast<Ast::FunctionDefSt>(stmt);
+                auto fnDef = std::static_pointer_cast<Ast::FunctionDefSt>(stmt);
                 assert(fnDef != nullptr);
 
                 const FString &fnName = fnDef->name;
@@ -1071,7 +1108,7 @@ namespace Fig
             }
 
             case StructSt: {
-                auto stDef = std::dynamic_pointer_cast<Ast::StructDefSt>(stmt);
+                auto stDef = std::static_pointer_cast<Ast::StructDefSt>(stmt);
                 assert(stDef != nullptr);
 
                 if (ctx->containsInThisScope(stDef->name))
@@ -1123,7 +1160,7 @@ namespace Fig
             }
 
             case InterfaceDefSt: {
-                auto ifd = std::dynamic_pointer_cast<Ast::InterfaceDefAst>(stmt);
+                auto ifd = std::static_pointer_cast<Ast::InterfaceDefAst>(stmt);
                 assert(ifd != nullptr);
 
                 const FString &interfaceName = ifd->name;
@@ -1144,7 +1181,7 @@ namespace Fig
             }
 
             case ImplementSt: {
-                auto ip = std::dynamic_pointer_cast<Ast::ImplementAst>(stmt);
+                auto ip = std::static_pointer_cast<Ast::ImplementAst>(stmt);
                 assert(ip != nullptr);
 
                 TypeInfo structType(ip->structName);
@@ -1288,7 +1325,7 @@ namespace Fig
             }
 
             case IfSt: {
-                auto ifSt = std::dynamic_pointer_cast<Ast::IfSt>(stmt);
+                auto ifSt = std::static_pointer_cast<Ast::IfSt>(stmt);
                 ObjectPtr condVal = eval(ifSt->condition, ctx);
                 if (condVal->getTypeInfo() != ValueType::Bool)
                 {
@@ -1315,7 +1352,7 @@ namespace Fig
                 return StatementResult::normal();
             };
             case WhileSt: {
-                auto whileSt = std::dynamic_pointer_cast<Ast::WhileSt>(stmt);
+                auto whileSt = std::static_pointer_cast<Ast::WhileSt>(stmt);
                 while (true)
                 {
                     ObjectPtr condVal = eval(whileSt->condition, ctx);
@@ -1338,7 +1375,7 @@ namespace Fig
                 return StatementResult::normal();
             };
             case ForSt: {
-                auto forSt = std::dynamic_pointer_cast<Ast::ForSt>(stmt);
+                auto forSt = std::static_pointer_cast<Ast::ForSt>(stmt);
                 ContextPtr loopContext = std::make_shared<Context>(
                     FString(std::format("<For {}:{}>", forSt->getAAI().line, forSt->getAAI().column)),
                     ctx); // for loop has its own context
@@ -1379,7 +1416,7 @@ namespace Fig
             }
 
             case TrySt: {
-                auto tryst = std::dynamic_pointer_cast<Ast::TrySt>(stmt);
+                auto tryst = std::static_pointer_cast<Ast::TrySt>(stmt);
                 assert(tryst != nullptr);
 
                 ContextPtr tryCtx = std::make_shared<Context>(
@@ -1418,7 +1455,7 @@ namespace Fig
             }
 
             case ThrowSt: {
-                auto ts = std::dynamic_pointer_cast<Ast::ThrowSt>(stmt);
+                auto ts = std::static_pointer_cast<Ast::ThrowSt>(stmt);
                 assert(ts != nullptr);
 
                 ObjectPtr value = eval(ts->value, ctx);
@@ -1430,7 +1467,7 @@ namespace Fig
             }
 
             case ReturnSt: {
-                auto returnSt = std::dynamic_pointer_cast<Ast::ReturnSt>(stmt);
+                auto returnSt = std::static_pointer_cast<Ast::ReturnSt>(stmt);
                 assert(returnSt != nullptr);
 
                 ObjectPtr returnValue = Object::getNullInstance(); // default is null
@@ -1463,7 +1500,7 @@ namespace Fig
             }
 
             case ExpressionStmt: {
-                auto exprStmt = std::dynamic_pointer_cast<Ast::ExpressionStmtAst>(stmt);
+                auto exprStmt = std::static_pointer_cast<Ast::ExpressionStmtAst>(stmt);
                 assert(exprStmt != nullptr);
 
                 return StatementResult::normal(eval(exprStmt->exp, ctx));
@@ -1641,14 +1678,14 @@ namespace Fig
         for (auto &ast : asts)
         {
             Ast::Expression exp;
-            if ((exp = std::dynamic_pointer_cast<Ast::ExpressionAst>(ast)))
+            if ((exp = std::dynamic_pointer_cast<Ast::ExpressionAst>(ast))) // 保持 dynamic_pointer_cast !
             {
                 sr = StatementResult::normal(eval(exp, global));
             }
             else
             {
                 // statement
-                Ast::Statement stmt = std::dynamic_pointer_cast<Ast::StatementAst>(ast);
+                Ast::Statement stmt = std::static_pointer_cast<Ast::StatementAst>(ast);
                 assert(stmt != nullptr);
                 sr = evalStatement(stmt, global);
                 if (sr.isError())

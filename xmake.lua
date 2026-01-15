@@ -28,6 +28,7 @@ target("Fig")
 
     add_files("src/Evaluator/main.cpp")
     add_files("src/Core/warning.cpp")
+    add_files("src/Core/runtimeTime.cpp")
     add_files("src/Evaluator/evaluator.cpp")
     add_files("src/Evaluator/Value/value.cpp")
     add_files("src/Lexer/lexer.cpp")

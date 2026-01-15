@@ -1,0 +1,51 @@
+/*
+    Official Module `time`
+    Library/time/time.fig
+    
+    Copyright © 2026 PuqiAR. All rights reserved.
+*/
+
+import _builtins; // provides __ftime_now_ns (int64_t)
+
+
+public struct Time
+{
+    ns: Int; // int64_t, private
+
+    public func toNanos() -> Int
+    {
+        return ns;
+    }
+
+    public func toMicros() -> Int
+    {
+        return __fvalue_int_from(ns / 1000); // convert double to int
+    }
+
+    public func toMillis() -> Double
+    {
+        return ns / 1000 / 1000;
+    }
+
+    public func toSeconds() -> Double
+    {
+        return ns / 1000 / 1000 / 1000;
+    }
+
+    public func since(other: Time) -> Int
+    {
+        const time_ns := other.toNanos();
+        const result := ns - time_ns;
+        if result < 0
+        {
+            throw "time has reversed! 😢";
+        }
+        return result;
+    }
+    // TODO: support `-` operator when Fig supports overload
+} 
+
+public func now() -> Time
+{
+    return Time{__ftime_now_ns()};
+}

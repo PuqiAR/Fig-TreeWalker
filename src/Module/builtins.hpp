@@ -1,10 +1,12 @@
 #pragma once
 
-#include "Ast/Statements/InterfaceDefSt.hpp"
-#include "Ast/functionParameters.hpp"
+#include <Ast/Statements/InterfaceDefSt.hpp>
+#include <Ast/functionParameters.hpp>
 #include <Core/fig_string.hpp>
 #include <Value/value.hpp>
+#include <Core/runtimeTime.hpp>
 
+#include <chrono>
 #include <numeric>
 #include <unordered_map>
 #include <functional>
@@ -65,6 +67,7 @@ namespace Fig
             {u8"__fvalue_double_parse", 1},
             {u8"__fvalue_double_from", 1},
             {u8"__fvalue_string_from", 1},
+            {u8"__ftime_now_ns", 0},
             /* math start */
             {u8"__fmath_acos", 1},
             {u8"__fmath_acosh", 1},
@@ -194,6 +197,15 @@ namespace Fig
                  ObjectPtr val = args[0];
                  return std::make_shared<Object>(val->toStringIO());
              }},
+            {u8"__ftime_now_ns",
+             [](const std::vector<ObjectPtr> &args) -> ObjectPtr {
+                 // returns nanoseconds
+                 using namespace Fig::Time;
+                 auto now = Clock::now();
+                 return std::make_shared<Object>(static_cast<ValueType::IntClass>(
+                     std::chrono::duration_cast<std::chrono::nanoseconds>(now - start_time).count()));
+             }},
+
             /* math start */
             {u8"__fmath_acos",
              [](const std::vector<ObjectPtr> &args) -> ObjectPtr {

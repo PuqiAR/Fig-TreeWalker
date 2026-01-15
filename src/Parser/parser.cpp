@@ -592,6 +592,7 @@ namespace Fig
             }
             else if (isThis(TokenType::Struct))
             {
+                next();
                 stmt = __parseStructDef(true);
             }
             else if (isThis(TokenType::Interface))

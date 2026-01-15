@@ -2,6 +2,7 @@
 
 #include <Core/fig_string.hpp>
 
+#include <unordered_set>
 #include <variant>
 #include <map>
 
@@ -75,6 +76,28 @@ namespace Fig
         using BoolClass = bool;
         using NullClass = std::monostate;
         using StringClass = FString;
+
+        static const std::unordered_set<TypeInfo, TypeInfoHash> builtinTypes
+        {
+            Any,
+            Null,
+            Int,
+            String,
+            Bool,
+            Double,
+            Function,
+            StructType,
+            StructInstance,
+            List,
+            Map,
+            Module,
+            InterfaceType
+        };
+
+        inline bool isTypeBuiltin(const TypeInfo &type)
+        {
+            return builtinTypes.contains(type);
+        }
     }; // namespace ValueType
 }; // namespace Fig
 

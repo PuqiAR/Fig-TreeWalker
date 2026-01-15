@@ -28,7 +28,7 @@ This software is licensed under the MIT License. See LICENSE.txt for details.
 */
 
 #include <Utils/argparse/argparse.hpp>
-#include <print>
+// #include <print>
 #include <fstream>
 
 #include <Core/core.hpp>
@@ -38,6 +38,7 @@ This software is licensed under the MIT License. See LICENSE.txt for details.
 #include <Utils/AstPrinter.hpp>
 #include <Utils/utils.hpp>
 #include <Error/errorLog.hpp>
+#include <Core/runtimeTime.hpp>
 
 static size_t addressableErrorCount = 0;
 static size_t unaddressableErrorCount = 0;
@@ -45,6 +46,10 @@ static size_t unaddressableErrorCount = 0;
 
 int main(int argc, char **argv)
 {
+    Time::init();
+    // init, set start_time (std::chrono::time_point)
+
+
     argparse::ArgumentParser program("Fig Interpreter", Fig::Core::VERSION.data());
     program.add_argument("source")
         .help("source file to be interpreted")
