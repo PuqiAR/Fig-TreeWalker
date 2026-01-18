@@ -6,6 +6,7 @@
 #include <Core/fig_string.hpp>
 #include <Error/error.hpp>
 
+#include <memory>
 #include <print>
 #include <source_location>
 #include <unordered_map>
@@ -21,6 +22,9 @@ namespace Fig
         Lexer lexer;
         std::vector<Ast::AstBase> output;
         std::vector<Token> previousTokens;
+
+        std::shared_ptr<FString> sourcePathPtr;
+        std::shared_ptr<std::vector<FString>> sourceLinesPtr;
 
         size_t tokenPruduced = 0;
         size_t currentTokenIndex = 0;
@@ -72,7 +76,11 @@ namespace Fig
         static const std::unordered_map<Ast::Operator, std::pair<Precedence, Precedence>> opPrecedence;
         static const std::unordered_map<Ast::Operator, Precedence> unaryOpPrecedence;
 
-        Parser(const Lexer &_lexer) : lexer(_lexer) {}
+        Parser(const Lexer &_lexer, FString _sourcePath, std::vector<FString> _sourceLines) : lexer(_lexer)
+        {
+            sourcePathPtr = std::make_shared<FString>(_sourcePath);
+            sourceLinesPtr = std::make_shared<std::vector<FString>>(_sourceLines);
+        }
 
         AddressableError *getError() const { return error.get(); }
 
@@ -83,7 +91,7 @@ namespace Fig
                                    std::source_location loc = std::source_location::current())
         {
             static_assert(std::is_base_of_v<AddressableError, _ErrT>, "_ErrT must derive from AddressableError");
-            _ErrT spError(msg, line, column, loc);
+            _ErrT spError(msg, line, column, *sourcePathPtr, *sourceLinesPtr, loc);
             error = std::make_unique<_ErrT>(spError);
             throw spError;
         }
@@ -92,7 +100,7 @@ namespace Fig
         {
             static_assert(std::is_base_of_v<AddressableError, _ErrT>, "_ErrT must derive from AddressableError");
             // line, column provide by `currentAAI`
-            _ErrT spError(msg, currentAAI.line, currentAAI.column, loc);
+            _ErrT spError(msg, currentAAI.line, currentAAI.column, *sourcePathPtr, *sourceLinesPtr, loc);
             error = std::make_unique<_ErrT>(spError);
             throw spError;
         }
@@ -135,7 +143,10 @@ namespace Fig
                 CTI也需要显示转换，否则转换完的pruduced又会被转回去，变为 int64_t max
                 */
                 currentTokenIndex++;
-                setCurrentAAI(Ast::AstAddressInfo{.line = currentToken().line, .column = currentToken().column});
+                setCurrentAAI(Ast::AstAddressInfo{.line = currentToken().line,
+                                                  .column = currentToken().column,
+                                                  .sourcePath = sourcePathPtr,
+                                                  .sourceLines = sourceLinesPtr});
                 return;
             }
             if (isEOF()) return;
@@ -143,7 +154,11 @@ namespace Fig
             tokenPruduced++;
             if (tok == IllegalTok) throw lexer.getError();
             currentTokenIndex = tokenPruduced - 1;
-            setCurrentAAI(Ast::AstAddressInfo{.line = tok.line, .column = tok.column});
+            setCurrentAAI(Ast::AstAddressInfo{.line = tok.line,
+                                              .column = tok.column,
+                                              .sourcePath = sourcePathPtr,
+                                              .sourceLines = sourceLinesPtr});
+
             previousTokens.push_back(tok);
         }
         inline const Token &currentToken()
@@ -298,9 +313,8 @@ namespace Fig
         Ast::ListExpr __parseListExpr(); // entry: current is `[`
         Ast::MapExpr __parseMapExpr();   // entry: current is `{`
 
-        Ast::InitExpr __parseInitExpr(
-            Ast::Expression); // entry: current is `{`, ahead is struct type exp.
-        Ast::Expression __parseTupleOrParenExpr(); // entry: current is `(`
+        Ast::InitExpr __parseInitExpr(Ast::Expression); // entry: current is `{`, ahead is struct type exp.
+        Ast::Expression __parseTupleOrParenExpr();      // entry: current is `(`
 
         Ast::FunctionLiteralExpr __parseFunctionLiteralExpr(); // entry: current is Token::LParen after Token::Function
 

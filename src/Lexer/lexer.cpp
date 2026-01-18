@@ -10,6 +10,10 @@
     #include <iostream> // debug
 #endif
 
+#ifndef SourceInfo
+    #define SourceInfo(ptr) (ptr->sourcePath), (ptr->sourceLines)
+#endif
+
 namespace Fig
 {
 
@@ -163,7 +167,7 @@ namespace Fig
             {
                 if (it.isEnd())
                 {
-                    error = SyntaxError(u8"Unterminated FString", this->line, it.column());
+                    error = SyntaxError(u8"Unterminated FString", this->line, it.column(), SourceInfo(this));
                     return IllegalTok;
                 }
                 next();
@@ -200,12 +204,11 @@ namespace Fig
                 }
                 else
                 {
-                    error = SyntaxError(FString(
-                                            std::format(
-                                                "Unsupported escape character: {}",
-                                                FString(ec.getString()).toBasicString())),
+                    error = SyntaxError(FString(std::format("Unsupported escape character: {}",
+                                                            FString(ec.getString()).toBasicString())),
                                         this->line,
-                                        it.column());
+                                        it.column(),
+                                        SourceInfo(this));
                     return IllegalTok;
                 }
             }
@@ -217,7 +220,7 @@ namespace Fig
         }
         if (unterminated)
         {
-            error = SyntaxError(u8"Unterminated FString", this->line, str_start_col);
+            error = SyntaxError(u8"Unterminated FString", this->line, str_start_col, SourceInfo(this));
             return IllegalTok;
         }
         return Token(str, TokenType::LiteralString);
@@ -244,7 +247,7 @@ namespace Fig
         }
         if (unterminated)
         {
-            error = SyntaxError(u8"Unterminated FString", this->line, str_start_col);
+            error = SyntaxError(u8"Unterminated FString", this->line, str_start_col, SourceInfo(this));
             return IllegalTok;
         }
         return Token(str, TokenType::LiteralString);
@@ -275,7 +278,7 @@ namespace Fig
             {
                 if (it.isEnd())
                 {
-                    error = SyntaxError(u8"Unterminated FString", this->line, it.column());
+                    error = SyntaxError(u8"Unterminated FString", this->line, it.column(), SourceInfo(this));
                     return IllegalTok;
                 }
                 next();
@@ -317,12 +320,11 @@ namespace Fig
                 }
                 else
                 {
-                    error = SyntaxError(FString(
-                                            std::format(
-                                                "Unsupported escape character: {}",
-                                                FString(ec.getString()).toBasicString())),
+                    error = SyntaxError(FString(std::format("Unsupported escape character: {}",
+                                                            FString(ec.getString()).toBasicString())),
                                         this->line,
-                                        it.column());
+                                        it.column(),
+                                        SourceInfo(this));
                     return IllegalTok;
                 }
             }
@@ -334,7 +336,7 @@ namespace Fig
         }
         if (unterminated)
         {
-            error = SyntaxError(u8"Unterminated FString", this->line, str_start_col);
+            error = SyntaxError(u8"Unterminated FString", this->line, str_start_col, SourceInfo(this));
             return IllegalTok;
         }
         return Token(str, TokenType::LiteralString);
@@ -378,8 +380,10 @@ namespace Fig
 
         if (numStr.ends_with(U'e'))
         {
-            error = SyntaxError(
-                FString(std::format("Illegal number literal: {}", numStr.toBasicString())), this->line, it.column());
+            error = SyntaxError(FString(std::format("Illegal number literal: {}", numStr.toBasicString())),
+                                this->line,
+                                it.column(),
+                                SourceInfo(this));
             return IllegalTok;
         }
 
@@ -395,8 +399,10 @@ namespace Fig
 
         if (!hasDigit)
         {
-            error = SyntaxError(
-                FString(std::format("Illegal number literal: {}", numStr.toBasicString())), this->line, it.column());
+            error = SyntaxError(FString(std::format("Illegal number literal: {}", numStr.toBasicString())),
+                                this->line,
+                                it.column(),
+                                SourceInfo(this));
             return IllegalTok;
         }
 
@@ -407,14 +413,16 @@ namespace Fig
             {
                 error = SyntaxError(FString(std::format("Illegal number literal: {}", numStr.toBasicString())),
                                     this->line,
-                                    it.column());
+                                    it.column(),
+                                    SourceInfo(this));
                 return IllegalTok;
             }
             if (ePos + 1 >= numStr.length())
             {
                 error = SyntaxError(FString(std::format("Illegal number literal: {}", numStr.toBasicString())),
                                     this->line,
-                                    it.column());
+                                    it.column(),
+                                    SourceInfo(this));
                 return IllegalTok;
             }
             bool hasDigitAfterE = false;
@@ -427,7 +435,8 @@ namespace Fig
                     {
                         error = SyntaxError(FString(std::format("Illegal number literal: {}", numStr.toBasicString())),
                                             this->line,
-                                            it.column());
+                                            it.column(),
+                                            SourceInfo(this));
                         return IllegalTok;
                     }
                     continue;
@@ -438,7 +447,8 @@ namespace Fig
                 {
                     error = SyntaxError(FString(std::format("Illegal number literal: {}", numStr.toBasicString())),
                                         this->line,
-                                        it.column());
+                                        it.column(),
+                                        SourceInfo(this));
                     return IllegalTok;
                 }
             }
@@ -447,7 +457,8 @@ namespace Fig
             {
                 error = SyntaxError(FString(std::format("Illegal number literal: {}", numStr.toBasicString())),
                                     this->line,
-                                    it.column());
+                                    it.column(),
+                                    SourceInfo(this));
                 return IllegalTok;
             }
         }
@@ -472,9 +483,10 @@ namespace Fig
 
         if (!startsWith(sym))
         {
-            error = SyntaxError(
-                FString(std::format("No such operator: {}", sym.toBasicString())),
-                this->line, it.column());
+            error = SyntaxError(FString(std::format("No such operator: {}", sym.toBasicString())),
+                                this->line,
+                                it.column(),
+                                SourceInfo(this));
             next();
             return IllegalTok;
         }
@@ -500,9 +512,10 @@ namespace Fig
 
         if (!symbol_map.contains(sym))
         {
-            error = SyntaxError(
-                FString(std::format("No such operator: {}", sym.toBasicString())),
-                this->line, it.column());
+            error = SyntaxError(FString(std::format("No such operator: {}", sym.toBasicString())),
+                                this->line,
+                                it.column(),
+                                SourceInfo(this));
             next();
             return IllegalTok;
         }
@@ -562,7 +575,8 @@ namespace Fig
 
             if (!terminated)
             {
-                error = SyntaxError(FString(u8"Unterminated multiline comment"), this->line, it.column());
+                error =
+                    SyntaxError(FString(u8"Unterminated multiline comment"), this->line, it.column(), SourceInfo(this));
                 next();
                 return IllegalTok;
             }
@@ -633,9 +647,11 @@ namespace Fig
         }
         else
         {
-            error = SyntaxError(FString(
-                                    std::format("Cannot tokenize char: '{}'", FString(ch.getString()).toBasicString())),
-                                this->line, it.column());
+            error =
+                SyntaxError(FString(std::format("Cannot tokenize char: '{}'", FString(ch.getString()).toBasicString())),
+                            this->line,
+                            it.column(),
+                            SourceInfo(this));
             if (hasNext())
             {
                 next();

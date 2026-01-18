@@ -22,7 +22,7 @@ namespace Fig
         // 逻辑
         {Ast::Operator::And, {5, 6}},
         {Ast::Operator::Or, {4, 5}},
-        {Ast::Operator::Not, {30, 31}}, // 一元
+        // {Ast::Operator::Not, {30, 31}}, // 一元
 
         // 比较
         {Ast::Operator::Equal, {7, 8}},
@@ -37,7 +37,7 @@ namespace Fig
         {Ast::Operator::BitAnd, {6, 7}},
         {Ast::Operator::BitOr, {4, 5}},
         {Ast::Operator::BitXor, {5, 6}},
-        {Ast::Operator::BitNot, {30, 31}}, // 一元
+        // {Ast::Operator::BitNot, {30, 31}}, // 一元
         {Ast::Operator::ShiftLeft, {15, 16}},
         {Ast::Operator::ShiftRight, {15, 16}},
 
@@ -214,7 +214,7 @@ namespace Fig
                 variaPara = pname;
                 next(); // skip `...`
                 if (!isThis(TokenType::RightParen))
-                    throw SyntaxError(
+                    throwAddressableError<SyntaxError>(
                         u8"Expects right paren, variable parameter function can only have one parameter",
                         currentAAI.line,
                         currentAAI.column);
@@ -433,7 +433,7 @@ namespace Fig
             }
             else
             {
-                throw SyntaxError(FString(u8"Invalid syntax"), currentAAI.line, currentAAI.column);
+                throwAddressableError<SyntaxError>(FString(u8"Invalid syntax"), currentAAI.line, currentAAI.column);
             }
         }
         return makeAst<Ast::InterfaceDefAst>(interfaceName, methods, isPublic);
@@ -480,7 +480,7 @@ namespace Fig
             }
             else
             {
-                throw SyntaxError(FString(u8"Invalid syntax"), currentAAI.line, currentAAI.column);
+                throwAddressableError<SyntaxError>(FString(u8"Invalid syntax"), currentAAI.line, currentAAI.column);
             }
         }
 
@@ -556,7 +556,8 @@ namespace Fig
             {
                 if (finallyBlock != nullptr)
                 {
-                    throw SyntaxError(u8"Duplicate try finally-block", currentAAI.line, currentAAI.column);
+                    throwAddressableError<SyntaxError>(
+                        u8"Duplicate try finally-block", currentAAI.line, currentAAI.column);
                 }
                 next(); // consume `finally`
                 expect(TokenType::LeftBrace);
@@ -678,11 +679,7 @@ namespace Fig
         }
         else 
         {
-            throw SyntaxError(
-                u8"invalid syntax",
-                currentAAI.line,
-                currentAAI.column
-            );
+            throwAddressableError<SyntaxError>(u8"invalid syntax", currentAAI.line, currentAAI.column);
         }
         return stmt;
     }
@@ -1208,11 +1205,11 @@ namespace Fig
             if (!isTokenOp(tok)) break;
 
             op = Ast::TokenToOp.at(tok.getType());
-            Precedence lbp = getLeftBindingPower(op);
+            auto [lbp, rbp] = getBindingPower(op);
             if (bp >= lbp) break;
 
             next(); // consume op
-            lhs = makeAst<Ast::BinaryExprAst>(lhs, op, parseExpression(bp, stop, stop2));
+            lhs = makeAst<Ast::BinaryExprAst>(lhs, op, parseExpression(rbp, stop, stop2));
         }
 
         return lhs;
@@ -1232,10 +1229,8 @@ namespace Fig
             auto stmt = __parseStatement();
             if (!output.empty() && stmt->getType() == Ast::AstType::PackageSt)
             {
-                throw SyntaxError(
-                    u8"Package must be at the beginning of the file",
-                    currentAAI.line,
-                    currentAAI.column);
+                throwAddressableError<SyntaxError>(
+                    u8"Package must be at the beginning of the file", currentAAI.line, currentAAI.column);
             }
             pushNode(stmt);
         }

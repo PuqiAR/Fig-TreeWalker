@@ -89,7 +89,9 @@ int main(int argc, char **argv)
     std::string source((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
     file.close();
 
-    Fig::Lexer lexer((Fig::FString(source)));
+    std::vector<FString> sourceLines = Fig::Utils::splitSource(Fig::FString(source));
+
+    Fig::Lexer lexer((Fig::FString(source)), sourcePath, sourceLines);
 
     // Token tok;
     // while ((tok = lexer.nextToken()).getType() != TokenType::EndOfFile)
@@ -97,10 +99,8 @@ int main(int argc, char **argv)
     //     std::println("{}", tok.toString().toBasicString());
     // }
 
-    Fig::Parser parser(lexer);
+    Fig::Parser parser(lexer, sourcePath, sourceLines);
     std::vector<Fig::Ast::AstBase> asts;
-
-    std::vector<FString> sourceLines = Fig::Utils::splitSource(Fig::FString(source));
 
     try
     {
@@ -109,7 +109,7 @@ int main(int argc, char **argv)
     catch (const Fig::AddressableError &e)
     {
         addressableErrorCount++;
-        ErrorLog::logAddressableError(e, sourcePath, sourceLines);
+        ErrorLog::logAddressableError(e);
         return 1;
     }
     catch (const Fig::UnaddressableError &e)
@@ -134,6 +134,7 @@ int main(int argc, char **argv)
     Fig::Evaluator evaluator;
 
     evaluator.SetSourcePath(sourcePath);
+    evaluator.SetSourceLines(sourceLines);
     evaluator.CreateGlobalContext();
     evaluator.RegisterBuiltinsValue(); 
 
@@ -144,7 +145,7 @@ int main(int argc, char **argv)
     catch (const Fig::AddressableError &e)
     {
         addressableErrorCount++;
-        ErrorLog::logAddressableError(e, sourcePath, sourceLines);
+        ErrorLog::logAddressableError(e);
         evaluator.printStackTrace();
         return 1;
     }

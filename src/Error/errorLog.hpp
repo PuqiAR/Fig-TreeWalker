@@ -98,8 +98,11 @@ namespace Fig
         }
 
 
-        inline void logAddressableError(const AddressableError &err, FString fileName, std::vector<FString> sourceLines)
+        inline void logAddressableError(const AddressableError &err)
         {
+            const FString &fileName = err.getSourcePath();
+            const std::vector<FString> &sourceLines = err.getSourceLines();
+
             std::print("\n");
             namespace TC = TerminalColors;
             coloredPrint(TC::LightWhite, "An error occurred! ");

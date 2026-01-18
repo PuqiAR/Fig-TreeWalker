@@ -38,7 +38,7 @@ public struct Time
         const result := ns - time_ns;
         if result < 0
         {
-            throw "time has reversed! 😢";
+            throw "time has been reversed! 😢";
         }
         return result;
     }

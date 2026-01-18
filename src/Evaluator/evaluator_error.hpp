@@ -10,7 +10,10 @@ namespace Fig
     public:
         FString typeName;
         using AddressableError::AddressableError;
-        EvaluatorError(FString _typeName, FString msg, Ast::AstBase ast, std::source_location loc = std::source_location::current())
+        EvaluatorError(FString _typeName,
+                       FString msg,
+                       Ast::AstBase ast,
+                       std::source_location loc = std::source_location::current())
         {
             message = msg;
             line = ast->getAAI().line;
@@ -20,8 +23,13 @@ namespace Fig
 
             typeName = std::move(_typeName);
 
+            sourcePath = *ast->getAAI().sourcePath;
+            sourceLines = *ast->getAAI().sourceLines;
         }
-        EvaluatorError(FString _typeName, std::string_view msg, Ast::AstBase ast, std::source_location loc = std::source_location::current())
+        EvaluatorError(FString _typeName,
+                       std::string_view msg,
+                       Ast::AstBase ast,
+                       std::source_location loc = std::source_location::current())
         {
             message = FString::fromBasicString(std::string(msg.data()));
             line = ast->getAAI().line;
@@ -30,13 +38,11 @@ namespace Fig
             src_loc = std::move(loc);
 
             typeName = std::move(_typeName);
+
+            sourcePath = *ast->getAAI().sourcePath;
+            sourceLines = *ast->getAAI().sourceLines;
         }
 
-        virtual FString getErrorType() const override
-        {
-            return typeName;
-        }
-
-
+        virtual FString getErrorType() const override { return typeName; }
     };
-};
+}; // namespace Fig

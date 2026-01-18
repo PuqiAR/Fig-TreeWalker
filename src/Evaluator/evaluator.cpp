@@ -24,6 +24,10 @@
 #include <memory>
 #include <unordered_map>
 
+#ifndef SourceInfo
+    #define SourceInfo(ptr) (ptr->sourcePath), (ptr->sourceLines)
+#endif
+
 namespace Fig
 {
 
@@ -210,11 +214,10 @@ namespace Fig
                 return evalIndexExpr(ie, ctx);
             }
             default: {
-                // throw EvaluatorError(
-                //     u8"TypeError",
-                //     std::format("Expression '{}' doesn't refer to a lvalue", exp->typeName().toBasicString()),
-                //     exp);
-                
+                throw EvaluatorError(
+                    u8"TypeError",
+                    std::format("Expression '{}' doesn't refer to a lvalue", exp->typeName().toBasicString()),
+                    exp);
             }
         }
     }
@@ -316,7 +319,7 @@ namespace Fig
                     return std::make_shared<Object>(implements(si.parentType, it.type, ctx));
                 }
 
-                if (ValueType::isTypeBuiltin(lhsType) && rhsType == ValueType::StructType) 
+                if (ValueType::isTypeBuiltin(lhsType) && rhsType == ValueType::StructType)
                 {
                     const StructType &st = rhs->as<StructType>();
                     const TypeInfo &type = st.type;
@@ -329,24 +332,20 @@ namespace Fig
                         e.g:
                             "123" is String
                               L   OP    R
-                            
+
                         其中 L 类型为 String
                         而 R 类型为 StructType (builtins.hpp) 中注册
                         拿到 R 的 StructType, 其中的 type 为 String
                     */
-                    if (lhs->getTypeInfo() == type)
-                    {
-                        return Object::getTrueInstance();
-                    }
+                    if (lhs->getTypeInfo() == type) { return Object::getTrueInstance(); }
                     return Object::getFalseInstance();
                 }
 
-                throw EvaluatorError(
-                    u8"TypeError",
-                    std::format("Unsupported operator `is` for '{}' && '{}'",
-                                lhsType.toString().toBasicString(),
-                                rhsType.toString().toBasicString()),
-                    bin->lexp);
+                throw EvaluatorError(u8"TypeError",
+                                     std::format("Unsupported operator `is` for '{}' && '{}'",
+                                                 lhsType.toString().toBasicString(),
+                                                 rhsType.toString().toBasicString()),
+                                     bin->lexp);
             }
 
             case Operator::BitAnd: {
@@ -1017,11 +1016,8 @@ namespace Fig
                 return std::make_shared<Object>(std::move(map));
             }
 
-            default:
-            {
-                throw RuntimeError(FString(
-                    std::format("err type of expr: {}", magic_enum::enum_name(type))
-                ));
+            default: {
+                throw RuntimeError(FString(std::format("err type of expr: {}", magic_enum::enum_name(type))));
             }
         }
         return Object::getNullInstance(); // ignore warning
@@ -1478,11 +1474,13 @@ namespace Fig
             case BreakSt: {
                 if (!ctx->parent)
                 {
-                    throw EvaluatorError(u8"BreakOutsideLoopError", u8"`break` statement outside loop", stmt);
+                    throw EvaluatorError(
+                        u8"BreakOutsideLoopError", u8"`break` statement outside loop", stmt);
                 }
                 if (!ctx->isInLoopContext())
                 {
-                    throw EvaluatorError(u8"BreakOutsideLoopError", u8"`break` statement outside loop", stmt);
+                    throw EvaluatorError(
+                        u8"BreakOutsideLoopError", u8"`break` statement outside loop", stmt);
                 }
                 return StatementResult::breakFlow();
             }
@@ -1490,11 +1488,13 @@ namespace Fig
             case ContinueSt: {
                 if (!ctx->parent)
                 {
-                    throw EvaluatorError(u8"ContinueOutsideLoopError", u8"`continue` statement outside loop", stmt);
+                    throw EvaluatorError(
+                        u8"ContinueOutsideLoopError", u8"`continue` statement outside loop", stmt);
                 }
                 if (!ctx->isInLoopContext())
                 {
-                    throw EvaluatorError(u8"ContinueOutsideLoopError", u8"`continue` statement outside loop", stmt);
+                    throw EvaluatorError(
+                        u8"ContinueOutsideLoopError", u8"`continue` statement outside loop", stmt);
                 }
                 return StatementResult::continueFlow();
             }
@@ -1620,28 +1620,30 @@ namespace Fig
 
     ContextPtr Evaluator::loadModule(const std::filesystem::path &path)
     {
+        FString modSourcePath(path.string());
         std::ifstream file(path);
         assert(file.is_open());
 
         std::string source((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
         file.close();
 
-        Lexer lexer((FString(source)));
-        Parser parser(lexer);
-        std::vector<Ast::AstBase> asts;
+        std::vector<FString> modSourceLines = Utils::splitSource(FString(source));
 
-        std::vector<FString> sourceLines = Utils::splitSource(FString(source));
+        Lexer lexer((FString(source)), modSourcePath, modSourceLines);
+        Parser parser(lexer, modSourcePath, modSourceLines);
+        std::vector<Ast::AstBase> asts;
 
         asts = parser.parseAll();
 
         Evaluator evaluator;
-        evaluator.SetSourcePath(FString(path.string()));
+        evaluator.SetSourcePath(modSourcePath);
+        evaluator.SetSourceLines(modSourceLines);
 
         ContextPtr modctx = std::make_shared<Context>(FString(std::format("<Module at {}>", path.string())), nullptr);
 
         evaluator.SetGlobalContext(modctx);
         evaluator.RegisterBuiltinsValue();
-        evaluator.Run(asts);
+        evaluator.Run(asts); // error upward pass-by, log outside, we have already keep info in evaluator error
 
         return evaluator.global;
     }
@@ -1663,8 +1665,9 @@ namespace Fig
 
         if (ctx->containsInThisScope(modName))
         {
-            throw EvaluatorError(
-                u8"RedeclarationError", std::format("{} has already been declared.", modName.toBasicString()), i);
+            throw EvaluatorError(u8"RedeclarationError",
+                                 std::format("{} has already been declared.", modName.toBasicString()),
+                                 i);
         }
         ctx->def(
             modName, ValueType::Module, AccessModifier::PublicConst, std::make_shared<Object>(Module(modName, modCtx)));

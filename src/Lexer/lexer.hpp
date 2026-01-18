@@ -23,6 +23,9 @@ namespace Fig
         SyntaxError error;
         UTF8Iterator it;
 
+        FString sourcePath;
+        std::vector<FString> sourceLines;
+
         std::vector<Warning> warnings;
 
         size_t last_line, last_column, column = 1;
@@ -60,8 +63,8 @@ namespace Fig
         static const std::unordered_map<FString, TokenType> symbol_map;
         static const std::unordered_map<FString, TokenType> keyword_map;
 
-        inline Lexer(const FString &_source) :
-            source(_source), it(source)
+        inline Lexer(const FString &_source, const FString &_sourcePath, const std::vector<FString> &_sourceLines) :
+            source(_source), it(source), sourcePath(_sourcePath), sourceLines(_sourceLines)
         {
             line = 1;
         }

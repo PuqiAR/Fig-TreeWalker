@@ -100,6 +100,8 @@ namespace Fig::Ast
     struct AstAddressInfo
     {
         size_t line, column;
+        std::shared_ptr<FString> sourcePath;
+        std::shared_ptr<std::vector<FString>> sourceLines;
     };
 
     class _AstBase

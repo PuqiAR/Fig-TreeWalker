@@ -1,6 +1,6 @@
-#include "Ast/Statements/ImplementSt.hpp"
-#include "Ast/Statements/InterfaceDefSt.hpp"
-#include "Value/Type.hpp"
+#include <Ast/Statements/ImplementSt.hpp>
+#include <Ast/Statements/InterfaceDefSt.hpp>
+#include <Value/Type.hpp>
 #include <Ast/ast.hpp>
 
 #include <Context/context.hpp>
@@ -63,10 +63,16 @@ namespace Fig
 
     public:
         FString sourcePath;
+        std::vector<FString> sourceLines;
 
         void SetSourcePath(const FString &sp)
         {
             sourcePath = sp;
+        }
+
+        void SetSourceLines(const std::vector<FString> &sl)
+        {
+            sourceLines = sl;
         }
 
         void SetGlobalContext(ContextPtr ctx)

@@ -6,6 +6,7 @@
 #include <format>
 #include <source_location>
 #include <string>
+#include <vector>
 
 namespace Fig
 {
@@ -16,8 +17,10 @@ namespace Fig
         explicit AddressableError(FString _msg,
                                   size_t _line,
                                   size_t _column,
+                                  FString _sourcePath,
+                                  std::vector<FString> _sourceLines,
                                   std::source_location loc = std::source_location::current()) :
-            src_loc(loc), line(_line), column(_column)
+            src_loc(loc), line(_line), column(_column), sourcePath(std::move(_sourcePath)), sourceLines(std::move(_sourceLines))
         {
             message = _msg;
         }
@@ -33,9 +36,11 @@ namespace Fig
         }
         std::source_location src_loc;
 
-        size_t getLine() const { return line; }
-        size_t getColumn() const { return column; }
+        virtual size_t getLine() const { return line; }
+        virtual size_t getColumn() const { return column; }
         FString getMessage() const { return message; }
+        FString getSourcePath() const { return sourcePath; }
+        std::vector<FString> getSourceLines() const { return sourceLines; }
 
         virtual FString getErrorType() const
         {
@@ -45,6 +50,9 @@ namespace Fig
     protected:
         size_t line, column;
         FString message;
+
+        FString sourcePath;
+        std::vector<FString> sourceLines;
     };
 
     class UnaddressableError : public std::exception
@@ -83,14 +91,6 @@ namespace Fig
     {
     public:
         using AddressableError::AddressableError;
-
-        explicit SyntaxError(FString _msg,
-                             size_t _line,
-                             size_t _column,
-                             std::source_location loc = std::source_location::current()) :
-            AddressableError(_msg, _line, _column, loc)
-        {
-        }
 
         virtual FString toString() const override
         {
