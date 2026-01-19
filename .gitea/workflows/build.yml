@@ -131,6 +131,9 @@ jobs:
 
   build-windows-x64:
     runs-on: windows
+    # 🔧 新增：在Job级别设置版本环境变量
+    env:
+      VERSION: ${{ github.ref_name }}
 
     steps:
       - name: 验证Windows工具链
@@ -153,18 +156,7 @@ jobs:
           git clone https://git.fig-lang.cn/$env:GITHUB_REPOSITORY .
           git checkout $env:GITHUB_REF
 
-      - name: 设置版本
-        run: |
-          [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
-          if ($env:GITHUB_EVENT_NAME -eq 'workflow_dispatch') {
-            $VERSION = $env:INPUT_VERSION
-            if (-not $VERSION) { $VERSION = $env:VERSION_INPUT }
-            if (-not $VERSION) { $VERSION = "dev-build" }
-          } else {
-            $VERSION = $env:GITHUB_REF_NAME
-          }
-          Write-Host "构建版本: $VERSION"
-          "VERSION=$VERSION" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+      # 🔧 删除：移除整个"设置版本"步骤（不再需要）
 
       - name: 构建项目 (Windows Native)
         run: |
@@ -186,12 +178,11 @@ jobs:
         run: |
           [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
           
-          # 🔧 修改：与发布步骤使用相同的版本号计算逻辑
-          if ($env:GITHUB_EVENT_NAME -eq 'workflow_dispatch') {
-            $VERSION = $env:INPUT_VERSION
-            if (-not $VERSION) { $VERSION = "dev-build" }
-          } else {
-            $VERSION = $env:GITHUB_REF_NAME
+          # 🔧 修改：直接使用环境变量
+          $VERSION = $env:VERSION
+          if ([string]::IsNullOrEmpty($VERSION)) {
+            Write-Host "警告：版本号为空，使用默认值 dev-build"
+            $VERSION = "dev-build"
           }
           
           Write-Host "打包版本: $VERSION"
@@ -231,12 +222,11 @@ jobs:
         run: |
           [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
           
-          # 重新计算版本号（不使用 $env:VERSION）
-          if ($env:GITHUB_EVENT_NAME -eq 'workflow_dispatch') {
-            $VERSION = $env:INPUT_VERSION
-            if (-not $VERSION) { $VERSION = "dev-build" }
-          } else {
-            $VERSION = $env:GITHUB_REF_NAME
+          # 🔧 修改：直接使用环境变量
+          $VERSION = $env:VERSION
+          if ([string]::IsNullOrEmpty($VERSION)) {
+            Write-Host "警告：版本号为空，使用默认值 dev-build"
+            $VERSION = "dev-build"
           }
           
           Write-Host "正在上传Windows版本到发布: $VERSION"
