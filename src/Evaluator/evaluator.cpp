@@ -984,17 +984,42 @@ namespace Fig
                         }
                     }
                 }
-                instanceCtx->merge(*structT.defContext);
-                for (auto &[id, fn] : instanceCtx->getFunctions())
+                // instanceCtx->merge(*structT.defContext);
+                // for (auto &[id, fn] : instanceCtx->getFunctions())
+                // {
+                //     instanceCtx->_update(*instanceCtx->getFunctionName(id),
+                //                          std::make_shared<Object>(Function(fn.paras,
+                //                                                            fn.retType,
+                //                                                            fn.body,
+                //                                                            instanceCtx) // change its closureContext to
+                //                                                                         // struct instance's context
+                //                                                   ));
+                // }
+                
+                ContextPtr stDefCtx = structT.defContext;
+
+                // load struct method
+                for (auto &[id, fn] : stDefCtx->getFunctions())
                 {
-                    instanceCtx->_update(*instanceCtx->getFunctionName(id),
-                                         std::make_shared<Object>(Function(fn.paras,
-                                                                           fn.retType,
-                                                                           fn.body,
-                                                                           instanceCtx) // change its closureContext to
-                                                                                        // struct instance's context
-                                                                  ));
+                    auto funcNameOpt = stDefCtx->getFunctionName(id);
+                    assert(funcNameOpt.has_value());
+
+                    const FString &funcName = *funcNameOpt;
+                    auto funcSlot = stDefCtx->get(funcName);
+
+                    instanceCtx->def(
+                        funcName,
+                        ValueType::Function,
+                        funcSlot->am,
+                        std::make_shared<Object>(Function(
+                            fn.paras,
+                            fn.retType,
+                            fn.body,
+                            instanceCtx
+                        ))
+                    );
                 }
+
                 return std::make_shared<Object>(StructInstance(structT.type, instanceCtx));
             }
 
