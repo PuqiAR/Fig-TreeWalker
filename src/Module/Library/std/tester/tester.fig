@@ -1,0 +1,86 @@
+/*
+    Official Module `std.tester`
+    Library/std/tester/tester.fig
+
+    Copyright © 2025 PuqiAR. All rights reserved.
+*/
+
+
+
+import std.time;
+import std.io;
+
+// import std.value;
+// import std.math;
+// import std.formater;
+
+// const library_load_time := time.now();
+// io.println("All std libraries loaded! Cost:", library_load_time.toSeconds(), "s\n");
+
+public struct Test
+{
+    public case: String;
+    public fn: Function;
+    public expect_result: Any;
+
+    public func Run()
+    {
+        const start := time.now();
+        const result := fn();
+        const end := time.now();
+
+        const duration := new time.Time{ end.since(start) };
+
+        if result != expect_result
+        {
+            io.println("❌ Test '" + case + "'" + " failed");
+            io.println("    expect", expect_result, ", got", result);
+
+            return 1;
+        }
+        else
+        {
+            io.println("✔ Test '" + case + "'" + " succeed");
+            io.println("    result:", result);
+
+            return 0;
+        }
+    }
+}
+
+public struct Tester
+{
+    public tests: List = [];
+
+    public func AddTest(test: Test)
+    {
+        tests.push(test);
+    }
+
+    public func TestAll()
+    {
+        const numtests := tests.length();
+        
+        var success := 0;
+        var fail := 0;
+
+        for var i := 0; i < numtests; i += 1
+        {
+            io.printf("({}/{})", i + 1, numtests);
+            var result := tests[i].Run();
+            if result == 0
+            {
+                success += 1;
+            }
+            else
+            {
+                fail += 1;
+            }
+        }
+        io.println();
+        io.println("=" * 100);
+        io.println("All tests executed");
+        io.printf("  ({}/{}) success tested!\n", success, numtests);
+        io.printf("  ({}/{}) failed!\n", fail, numtests);    
+    }
+}

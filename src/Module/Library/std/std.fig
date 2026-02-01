@@ -6,3 +6,4 @@
 import io;    // link std.io
 import value; // link std.type
 import math;  // link std.math
+import tester; // link std.tester

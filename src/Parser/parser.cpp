@@ -9,59 +9,70 @@
 namespace Fig
 {
     // Operator : pair<LeftBindingPower, RightBindingPower>
-
     const std::unordered_map<Ast::Operator, std::pair<Parser::Precedence, Parser::Precedence>> Parser::opPrecedence = {
-        // 算术
-        {Ast::Operator::Add, {10, 11}},
-        {Ast::Operator::Subtract, {10, 11}},
-        {Ast::Operator::Multiply, {20, 21}},
-        {Ast::Operator::Divide, {20, 21}},
-        {Ast::Operator::Modulo, {20, 21}},
-        {Ast::Operator::Power, {30, 29}},
+        // 赋值类 - 右结合
+        {Ast::Operator::Assign, {20, 10}},
+        {Ast::Operator::PlusAssign, {20, 10}},
+        {Ast::Operator::MinusAssign, {20, 10}},
+        {Ast::Operator::SlashAssign, {20, 10}},
+        {Ast::Operator::AsteriskAssign, {20, 10}},
+        {Ast::Operator::PercentAssign, {20, 10}},
+        {Ast::Operator::CaretAssign, {20, 10}},
 
-        // 逻辑
-        {Ast::Operator::And, {5, 6}},
-        {Ast::Operator::Or, {4, 5}},
-        // {Ast::Operator::Not, {30, 31}}, // 一元
+        // 三元条件 - 特殊处理，通常是右结合
+        {Ast::Operator::TernaryCond, {30, 20}},
 
-        // 比较
-        {Ast::Operator::Equal, {7, 8}},
-        {Ast::Operator::NotEqual, {7, 8}},
-        {Ast::Operator::Less, {8, 9}},
-        {Ast::Operator::LessEqual, {8, 9}},
-        {Ast::Operator::Greater, {8, 9}},
-        {Ast::Operator::GreaterEqual, {8, 9}},
-        {Ast::Operator::Is, {8, 9}},
+        // 逻辑或
+        {Ast::Operator::Or, {40, 41}}, // leftBP < rightBP，左结合
 
-        // 位运算
-        {Ast::Operator::BitAnd, {6, 7}},
-        {Ast::Operator::BitOr, {4, 5}},
-        {Ast::Operator::BitXor, {5, 6}},
-        // {Ast::Operator::BitNot, {30, 31}}, // 一元
-        {Ast::Operator::ShiftLeft, {15, 16}},
-        {Ast::Operator::ShiftRight, {15, 16}},
+        // 逻辑与
+        {Ast::Operator::And, {50, 51}}, // 比 Or 高
 
-        {Ast::Operator::Assign, {2, 1}}, // 右结合
-        {Ast::Operator::PlusAssign, {2, 1}},
-        {Ast::Operator::MinusAssign, {2, 1}},
-        {Ast::Operator::SlashAssign, {2, 1}},
-        {Ast::Operator::AsteriskAssign, {2, 1}},
-        {Ast::Operator::PercentAssign, {2, 1}},
-        {Ast::Operator::CaretAssign, {2, 1}},
+        // 位或
+        {Ast::Operator::BitOr, {60, 61}},
 
-        // 海象运算符
-        // {Ast::Operator::Walrus, {2, 1}}, // 右结合
+        // 位异或
+        {Ast::Operator::BitXor, {70, 71}},
 
-        // // 点运算符
-        // {Ast::Operator::Dot, {40, 41}},
-        {Ast::Operator::TernaryCond, {3, 2}},
+        // 位与
+        {Ast::Operator::BitAnd, {80, 81}},
+
+        // 相等比较
+        {Ast::Operator::Equal, {90, 91}},
+        {Ast::Operator::NotEqual, {90, 91}},
+
+        // 关系比较
+        {Ast::Operator::Less, {100, 101}},
+        {Ast::Operator::LessEqual, {100, 101}},
+        {Ast::Operator::Greater, {100, 101}},
+        {Ast::Operator::GreaterEqual, {100, 101}},
+        {Ast::Operator::Is, {100, 101}},
+
+        // 位移
+        {Ast::Operator::ShiftLeft, {110, 111}},
+        {Ast::Operator::ShiftRight, {110, 111}},
+
+        // 加减
+        {Ast::Operator::Add, {120, 121}},
+        {Ast::Operator::Subtract, {120, 121}},
+
+        // 乘除模
+        {Ast::Operator::Multiply, {130, 131}},
+        {Ast::Operator::Divide, {130, 131}},
+        {Ast::Operator::Modulo, {130, 131}},
+
+        // 幂运算 - 右结合
+        {Ast::Operator::Power, {140, 139}}, // leftBP > rightBP
     };
 
+    // 赋值 < 三元 < 逻辑或 < 逻辑与 < 位运算 < 比较 < 位移 < 加减 < 乘除 < 幂 < 一元
+
+    // 一元运算符的优先级比所有二元运算符都高
     const std::unordered_map<Ast::Operator, Parser::Precedence> Parser::unaryOpPrecedence = {
         {Ast::Operator::Subtract, 150}, // -
-        {Ast::Operator::BitAnd, 150},   // &
         {Ast::Operator::BitNot, 150},   // ~
         {Ast::Operator::Not, 150},      // !
+        {Ast::Operator::BitAnd, 150},   // &（取地址）
     };
 
     Ast::VarDef Parser::__parseVarDef(bool isPublic)

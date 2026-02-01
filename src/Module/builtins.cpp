@@ -117,7 +117,9 @@ namespace Fig::Builtins
                  return std::make_shared<Object>(FString::fromBasicString(line));
              }},
             {u8"__fvalue_type",
-             [](const std::vector<ObjectPtr> &args) -> ObjectPtr { return std::make_shared<Object>(); }},
+             [](const std::vector<ObjectPtr> &args) -> ObjectPtr {
+                 return std::make_shared<Object>(args[0]->getTypeInfo().toString()); 
+            }},
             {u8"__fvalue_int_parse",
              [](const std::vector<ObjectPtr> &args) -> ObjectPtr {
                  FString str = args[0]->as<ValueType::StringClass>();

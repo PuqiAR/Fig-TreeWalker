@@ -110,21 +110,31 @@ namespace Fig
             coloredPrint(TC::LightRed, "✖  ");
             coloredPrint(TC::LightRed, std::format("{}: {}\n", err.getErrorType().toBasicString(), FString(err.getMessage()).toBasicString()));
             coloredPrint(TC::White, std::format("    at {}:{} in file '{}'\n", err.getLine(), err.getColumn(), fileName.toBasicString()));
-            FString lineContent = ((int64_t(err.getLine()) - int64_t(1)) >= 0 ? sourceLines[err.getLine() - 1] : u8"<No Source>");
-            coloredPrint(TC::LightBlue, std::format("    {}\n", lineContent.toBasicString()));
+
+            FString lineContent;
             FString pointerLine;
-            for (size_t i = 1; i < err.getColumn(); ++i)
+
+            if (fileName != u8"<stdin>")
             {
-                if (lineContent[i - 1] == U'\t')
+                lineContent = ((int64_t(err.getLine()) - int64_t(1)) >= 0 ? sourceLines[err.getLine() - 1] : u8"<No Source>");
+                FString pointerLine;
+                for (size_t i = 1; i < err.getColumn(); ++i)
                 {
-                    pointerLine += U'\t';
+                    if (lineContent[i - 1] == U'\t') { pointerLine += U'\t'; }
+                    else
+                    {
+                        pointerLine += U' ';
+                    }
                 }
-                else
-                {
-                    pointerLine += U' ';
-                }
+                pointerLine += U'^';
             }
-            pointerLine += U'^';
+            else 
+            {
+                lineContent = fileName;
+            }
+
+            coloredPrint(TC::LightBlue, std::format("    {}\n", lineContent.toBasicString()));
+
             coloredPrint(TC::LightGreen, std::format("    {}\n", pointerLine.toBasicString()));
             coloredPrint(TC::DarkGray, std::format("🔧 in function '{}' ({}:{})\n", err.src_loc.function_name(), err.src_loc.file_name(), err.src_loc.line()));
         }

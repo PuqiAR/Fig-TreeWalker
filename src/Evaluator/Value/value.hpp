@@ -429,7 +429,7 @@ namespace Fig
         {
             if (is<ValueType::NullClass>()) return FString(u8"null");
             if (is<ValueType::IntClass>()) return FString(std::to_string(as<ValueType::IntClass>()));
-            if (is<ValueType::DoubleClass>()) return FString(std::format("{:g}", as<ValueType::DoubleClass>()));
+            if (is<ValueType::DoubleClass>()) return FString(std::format("{}", as<ValueType::DoubleClass>()));
             if (is<ValueType::StringClass>()) return FString(u8"\"" + as<ValueType::StringClass>() + u8"\"");
             if (is<ValueType::BoolClass>()) return as<ValueType::BoolClass>() ? FString(u8"true") : FString(u8"false");
             if (is<Function>())
