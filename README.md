@@ -1,15 +1,18 @@
 # Fig Language - A Modern Scripting Language
 
 [Fig-Gitea](https://git.fig-lang.cn/PuqiAR/Fig)
+Recommend view on Gitea Endpoint
 
 [简体中文](README_ZH-CN.md "Chinese version")
 
-**Fig** is a statically-typed, expression-oriented programming language designed for clarity, safety, and modern development practices. With features inspired by Go, Rust, and JavaScript, Fig aims to provide a productive development experience while maintaining strong type safety.
+**Fig** is a dynamically strongly typed programming language designed for clarity, safety, and modern development practices. With features inspired by Go, Rust, and JavaScript, Fig aims to provide a productive development experience while maintaining strong type safety.
+
+[LanguageTutorial(zh_CN)](docs/zh_CN/01-简介.md "Chinese version")
 
 ## Features
 
 ### 🚀 Core Language Features
-- **Static typing with type inference** - Strong typing with minimal annotations
+- **Dynamic typing with type inference** - Strong typing with minimal annotations
 - **Modern control flow** - Full `for` loop support with proper scoping
 - **First-class functions** - Lambda expressions and closures
 - **Rich data structures** - Structs, lists, maps, and tuples
@@ -55,35 +58,6 @@ xmake run Fig [file]
 
 Replace `[file]` with the path to your input file.
 
-### 📁 Project Structure
-.
-├── ExampleCodes                # Example programs & performance tests
-│   └── SpeedTest               # Performance benchmark samples
-├── LICENSE                     # Project license
-├── Logo                        # Project logo assets
-├── README.md                   # English README
-├── README_ZH-CN.md             # Chinese README
-├── compile_flags.txt           # Compiler flags helper
-├── fig-vscode                  # VSCode extension project
-│   ├── node_modules            # Extension dependencies
-│   ├── out                     # Built extension output
-│   ├── src                     # Extension source code
-│   └── syntaxes                # Syntax highlighting definition
-├── src                         # Core Fig language source
-│   ├── Ast                     # AST definitions
-│   ├── Context                 # Runtime context
-│   ├── Core                    # Core utilities (UTF8/string/etc.)
-│   ├── Error                   # Error handling system
-│   ├── Evaluator               # Interpreter / evaluator
-│   ├── Lexer                   # Lexical analyzer
-│   ├── Module                  # Modules and builtins
-│   ├── Parser                  # Parser
-│   ├── Token                   # Token definitions
-│   ├── Utils                   # Utilities & helper headers
-│   └── Value                   # Runtime type/value system
-├── test.fig                    # Test script
-└── xmake.lua                   # Xmake build config
-
 ## Language Philosophy
     Fig is designed around several core principles:
 
@@ -94,3 +68,33 @@ Replace `[file]` with the path to your input file.
     Modern ergonomics - Developer experience matters
 
     Gradual learning - Simple to start, powerful when needed
+
+## Performance Summary
+
+**Version:** 0.4.2-alpha (Tree-walker Interpreter)  
+**Test Hardware:** i5-13490F, Windows 11
+
+**Execution Times for Fibonacci(30):**
+- Naive Recursion: **11.72s**
+- Memoization: **0.93ms** (12,600× faster)
+- Iteration: **0.37ms** (31,300× faster)  
+- Tail Recursion: **0.40ms** (29,200× faster)
+
+**Visual Comparison:**
+```
+Naive Recursion  : ████████████████████████████████████████ 11.72s
+Memoization      : ▉ 0.93ms
+Iteration        : ▍ 0.37ms
+Tail Recursion   : ▎ 0.40ms
+```
+
+**Key Insight:** Algorithm choice dominates performance in this tree-walker implementation.
+
+**Detailed Reports:** [English](./docs/benchmark_result/benchmark_result_en_0.4.2-alpha.md) | [中文](./docs/benchmark_result/benchmark_result_zh_0.4.2-alpha.md)
+
+
+## Language Documents
+
+see ./docs/en_US/...
+
+We're looking for translators to help translate our project and make it accessible to more language communities.
