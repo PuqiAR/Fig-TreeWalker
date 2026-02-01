@@ -1,17 +1,19 @@
 #pragma once
 
-#include "Ast/Statements/InterfaceDefSt.hpp"
-#include "Value/interface.hpp"
-#include <Value/Type.hpp>
+#include "Evaluator/Value/function.hpp"
+#include <Ast/Statements/InterfaceDefSt.hpp>
+#include <Evaluator/Value/interface.hpp>
+#include <Evaluator/Value/Type.hpp>
 #include <algorithm>
+#include <cstddef>
 #include <unordered_map>
 #include <iostream>
 #include <memory>
 
-#include <Context/context_forward.hpp>
+#include <Evaluator/Context/context_forward.hpp>
 #include <Core/fig_string.hpp>
-#include <Value/value.hpp>
-#include <Value/VariableSlot.hpp>
+#include <Evaluator/Value/value.hpp>
+#include <Evaluator/Value/VariableSlot.hpp>
 
 namespace Fig
 {
@@ -30,8 +32,8 @@ namespace Fig
         FString scopeName;
         std::unordered_map<FString, std::shared_ptr<VariableSlot>> variables;
 
-        std::unordered_map<std::size_t, Function> functions;
-        std::unordered_map<std::size_t, FString> functionNames;
+        // std::unordered_map<std::size_t, Function> functions;
+        // std::unordered_map<std::size_t, FString> functionNames;
 
         // implRegistry <Struct, ordered list of ImplRecord>
         std::unordered_map<TypeInfo, std::vector<ImplRecord>, TypeInfoHash> implRegistry;
@@ -51,14 +53,24 @@ namespace Fig
         void merge(const Context &c)
         {
             variables.insert(c.variables.begin(), c.variables.end());
-            functions.insert(c.functions.begin(), c.functions.end());
-            functionNames.insert(c.functionNames.begin(), c.functionNames.end());
             implRegistry.insert(c.implRegistry.begin(), c.implRegistry.end());
             // structTypeNames.insert(c.structTypeNames.begin(),
             // c.structTypeNames.end());
         }
 
-        std::unordered_map<size_t, Function> getFunctions() const { return functions; }
+        std::unordered_map<size_t, Function> getFunctions() const
+        {
+            std::unordered_map<size_t, Function> result;
+            for (auto &[name, slot] : variables)
+            {
+                if (slot->declaredType == ValueType::Function)
+                {
+                    const Function &fn = slot->value->as<Function>();
+                    result[fn.id] = fn;
+                }
+            }
+            return result;
+        }
 
         std::shared_ptr<VariableSlot> get(const FString &name)
         {
@@ -122,12 +134,6 @@ namespace Fig
                     FString(std::format("Variable '{}' already defined in this scope", name.toBasicString())));
             }
             variables[name] = std::make_shared<VariableSlot>(name, value, ti, am);
-            if (ti == ValueType::Function and value->getTypeInfo() == ValueType::Function)
-            {
-                auto &fn = value->as<Function>();
-                functions[fn.id] = fn;
-                functionNames[fn.id] = name;
-            }
             // if (ti == ValueType::StructType)
             // {
             //     auto &st = value->as<StructType>();
@@ -142,34 +148,20 @@ namespace Fig
                 throw RuntimeError(
                     FString(std::format("Variable '{}' already defined in this scope", name.toBasicString())));
             }
-            variables[name] = std::make_shared<VariableSlot>(
-                name,
-                target->value,
-                ti,
-                am,
-                true,
-                target
-            );
+            variables[name] = std::make_shared<VariableSlot>(name, target->value, ti, am, true, target);
         }
-        std::optional<Function> getFunction(std::size_t id)
-        {
-            auto it = functions.find(id);
-            if (it != functions.end()) { return it->second; }
-            else if (parent) { return parent->getFunction(id); }
-            else
-            {
-                return std::nullopt;
-            }
-        }
+
         std::optional<FString> getFunctionName(std::size_t id)
         {
-            auto it = functionNames.find(id);
-            if (it != functionNames.end()) { return it->second; }
-            else if (parent) { return parent->getFunctionName(id); }
-            else
+            for (auto &[name, slot] : variables)
             {
-                return std::nullopt;
+                if (slot->declaredType == ValueType::Function)
+                {
+                    const Function &fn = slot->value->as<Function>();
+                    if (fn.id == id) { return name; }
+                }
             }
+            return std::nullopt;
         }
         // std::optional<FString> getStructName(std::size_t id)
         // {
@@ -232,6 +224,13 @@ namespace Fig
             }
             return parent && parent->hasImplRegisted(structType, interfaceType);
         }
+
+        std::unordered_map<TypeInfo, std::vector<ImplRecord>, TypeInfoHash> getImplRegistry() const
+        {
+            return implRegistry;
+        }
+
+        std::unordered_map<TypeInfo, std::vector<ImplRecord>, TypeInfoHash> &getImplRegistry() { return implRegistry; }
 
         std::optional<ImplRecord> getImplRecord(const TypeInfo &structType, const TypeInfo &interfaceType) const
         {

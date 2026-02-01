@@ -1,9 +1,9 @@
 #pragma once
 
-#include "Value/value.hpp"
+#include <Evaluator/Value/value.hpp>
 #include <Core/fig_string.hpp>
-#include <Value/value_forward.hpp>
-#include <Value/Type.hpp>
+#include <Evaluator/Value/value_forward.hpp>
+#include <Evaluator/Value/Type.hpp>
 #include <array>
 #include <memory>
 
@@ -29,6 +29,11 @@ namespace Fig
         {
             if (val >= CACHE_MIN && val <= CACHE_MAX) { return cache[val - CACHE_MIN]; }
             return std::make_shared<Object>(val);
+        }
+        Object createIntCopy(ValueType::IntClass val) const
+        {
+            if (val >= CACHE_MIN && val <= CACHE_MAX) { return *cache[val - CACHE_MIN]; }
+            return Object(val);
         }
 
         static const IntPool &getInstance()

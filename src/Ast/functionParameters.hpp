@@ -1,7 +1,7 @@
 #pragma once
 
 #include <Ast/astBase.hpp>
-#include <Value/Type.hpp>
+#include <Evaluator/Value/Type.hpp>
 #include <Core/fig_string.hpp>
 
 #include <format>
@@ -56,7 +56,7 @@ namespace Fig::Ast
             {
                 return FString(variadicPara + u8"...");
             }
-            static const auto posParasToString = [this]() {
+            const auto posParasToString = [this]() {
                 FString out;
                 for (auto &p : posParas)
                 {
@@ -70,7 +70,7 @@ namespace Fig::Ast
                 out.pop_back();
                 return out;
             };
-            static const auto defParasToString = [this]() {
+            const auto defParasToString = [this]() {
                 FString out;
                 for (auto &p : defParas)
                 {
