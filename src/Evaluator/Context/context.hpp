@@ -30,31 +30,19 @@ namespace Fig
 
     struct OperationRecord
     {
-        using UnaryOpFn = std::function<ObjectPtr(const ObjectPtr &)>;        
+        using UnaryOpFn = std::function<ObjectPtr(const ObjectPtr &)>;
         using BinaryOpFn = std::function<ObjectPtr(const ObjectPtr &, const ObjectPtr &)>;
 
         std::unordered_map<Ast::Operator, UnaryOpFn> unOpRec;
         std::unordered_map<Ast::Operator, BinaryOpFn> binOpRec;
 
-        bool hasUnaryOp(Ast::Operator op) const
-        {
-            return unOpRec.contains(op);
-        }
+        bool hasUnaryOp(Ast::Operator op) const { return unOpRec.contains(op); }
 
-        bool hasBinaryOp(Ast::Operator op) const
-        {
-            return binOpRec.contains(op);
-        }
+        bool hasBinaryOp(Ast::Operator op) const { return binOpRec.contains(op); }
 
-        const UnaryOpFn &getUnaryOpFn(Ast::Operator op) const
-        {
-            return unOpRec.at(op);
-        }
+        const UnaryOpFn &getUnaryOpFn(Ast::Operator op) const { return unOpRec.at(op); }
 
-        const BinaryOpFn &getBinaryOpFn(Ast::Operator op) const 
-        {
-            return binOpRec.at(op);
-        }
+        const BinaryOpFn &getBinaryOpFn(Ast::Operator op) const { return binOpRec.at(op); }
     };
 
     class Context : public std::enable_shared_from_this<Context>
@@ -69,6 +57,7 @@ namespace Fig
         // implRegistry <Struct, ordered list of ImplRecord>
         std::unordered_map<TypeInfo, std::vector<ImplRecord>, TypeInfoHash> implRegistry;
         std::unordered_map<TypeInfo, OperationRecord, TypeInfoHash> opRegistry;
+
     public:
         ContextPtr parent;
 
@@ -393,6 +382,8 @@ namespace Fig
             assert(false); // not found
             throw "";      // ignore warning
         }
+
+        std::unordered_map<TypeInfo, OperationRecord, TypeInfoHash> &getOpRegistry() { return opRegistry; }
 
         bool hasOperatorImplemented(const TypeInfo &type, Ast::Operator op, bool isUnary = false) const
         {

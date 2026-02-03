@@ -4,6 +4,7 @@
 #include "Ast/functionParameters.hpp"
 #include "Core/fig_string.hpp"
 #include "Evaluator/Core/StatementResult.hpp"
+#include "Evaluator/Value/Type.hpp"
 #include "Evaluator/Value/value.hpp"
 #include <Evaluator/Value/LvObject.hpp>
 #include <Evaluator/evaluator.hpp>
@@ -103,6 +104,20 @@ namespace Fig
                         std::format("Structure '{}' already defined in this scope", stDef->name.toBasicString()),
                         stDef);
                 }
+
+                TypeInfo type(stDef->name, true); // register type name
+                ContextPtr defContext = std::make_shared<Context>(FString(std::format("<Struct {} at {}:{}>",
+                                                                                      stDef->name.toBasicString(),
+                                                                                      stDef->getAAI().line,
+                                                                                      stDef->getAAI().column)),
+                                                                  ctx);
+                ObjectPtr structTypeObj = std::make_shared<Object>(StructType(type, defContext, {}));
+
+                AccessModifier am = (stDef->isPublic ? AccessModifier::PublicConst : AccessModifier::Const);
+
+                ctx->def(stDef->name, ValueType::StructType, am, structTypeObj); // predef
+                defContext->def(stDef->name, ValueType::StructType, AccessModifier::Const, structTypeObj); // predef to itself, always const
+
                 std::vector<Field> fields;
                 std::vector<FString> _fieldNames;
                 for (Ast::StructDefField field : stDef->fields)
@@ -124,11 +139,8 @@ namespace Fig
 
                     fields.push_back(Field(field.am, field.fieldName, fieldType, field.defaultValueExpr));
                 }
-                ContextPtr defContext = std::make_shared<Context>(FString(std::format("<Struct {} at {}:{}>",
-                                                                                      stDef->name.toBasicString(),
-                                                                                      stDef->getAAI().line,
-                                                                                      stDef->getAAI().column)),
-                                                                  ctx);
+                structTypeObj->as<StructType>().fields = fields;
+
                 const Ast::BlockStatement &body = stDef->body;
                 for (auto &st : body->stmts)
                 {
@@ -141,13 +153,6 @@ namespace Fig
                     }
                     evalStatement(st, defContext); // function def st
                 }
-
-                AccessModifier am = (stDef->isPublic ? AccessModifier::PublicConst : AccessModifier::Const);
-                TypeInfo type(stDef->name, true); // register type name
-                ctx->def(stDef->name,
-                         ValueType::StructType,
-                         am,
-                         std::make_shared<Object>(StructType(type, defContext, fields)));
                 return StatementResult::normal();
             }
 

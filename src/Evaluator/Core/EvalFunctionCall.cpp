@@ -96,11 +96,11 @@ namespace Fig
         size_t i;
         for (i = 0; i < fnParas.posParas.size(); i++)
         {
-            const TypeInfo &expectedType = actualType(eval(fnParas.posParas[i].second, ctx)); // look up type info, if exists a type
+            const TypeInfo &expectedType = actualType(eval(fnParas.posParas[i].second, fn.closureContext)); // look up type info, if exists a type
                                                                                   // with the name, use it, else throw
             ObjectPtr argVal = eval(fnArgs.argv[i], ctx);
             TypeInfo actualType = argVal->getTypeInfo();
-            if (!isTypeMatch(expectedType, argVal, ctx))
+            if (!isTypeMatch(expectedType, argVal, fn.closureContext))
             {
                 throw EvaluatorError(u8"ArgumentTypeMismatchError",
                                      std::format("In function '{}', argument '{}' expects type '{}', but got type '{}'",
@@ -116,10 +116,10 @@ namespace Fig
         for (; i < fnArgs.getLength(); i++)
         {
             size_t defParamIndex = i - fnParas.posParas.size();
-            const TypeInfo &expectedType = actualType(eval(fnParas.defParas[defParamIndex].second.first, ctx));
+            const TypeInfo &expectedType = actualType(eval(fnParas.defParas[defParamIndex].second.first, fn.closureContext));
 
-            ObjectPtr defaultVal = eval(fnParas.defParas[defParamIndex].second.second, ctx);
-            if (!isTypeMatch(expectedType, defaultVal, ctx))
+            ObjectPtr defaultVal = eval(fnParas.defParas[defParamIndex].second.second, fn.closureContext);
+            if (!isTypeMatch(expectedType, defaultVal, fn.closureContext))
             {
                 throw EvaluatorError(
                     u8"DefaultParameterTypeError",
@@ -134,7 +134,7 @@ namespace Fig
 
             ObjectPtr argVal = eval(fnArgs.argv[i], ctx);
             TypeInfo actualType = argVal->getTypeInfo();
-            if (!isTypeMatch(expectedType, argVal, ctx))
+            if (!isTypeMatch(expectedType, argVal, fn.closureContext))
             {
                 throw EvaluatorError(u8"ArgumentTypeMismatchError",
                                      std::format("In function '{}', argument '{}' expects type '{}', but got type '{}'",
@@ -150,7 +150,7 @@ namespace Fig
         for (; i < fnParas.size(); i++)
         {
             size_t defParamIndex = i - fnParas.posParas.size();
-            ObjectPtr defaultVal = eval(fnParas.defParas[defParamIndex].second.second, ctx);
+            ObjectPtr defaultVal = eval(fnParas.defParas[defParamIndex].second.second, fn.closureContext);
             evaluatedArgs.argv.push_back(defaultVal);
         }
 
@@ -162,13 +162,13 @@ namespace Fig
             if (j < fnParas.posParas.size())
             {
                 paramName = fnParas.posParas[j].first;
-                paramType = actualType(eval(fnParas.posParas[j].second, ctx));
+                paramType = actualType(eval(fnParas.posParas[j].second, fn.closureContext));
             }
             else
             {
                 size_t defParamIndex = j - fnParas.posParas.size();
                 paramName = fnParas.defParas[defParamIndex].first;
-                paramType = actualType(eval(fnParas.defParas[defParamIndex].second.first, ctx));
+                paramType = actualType(eval(fnParas.defParas[defParamIndex].second.first, fn.closureContext));
             }
             AccessModifier argAm = AccessModifier::Normal;
             newContext->def(paramName, paramType, argAm, evaluatedArgs.argv[j]);

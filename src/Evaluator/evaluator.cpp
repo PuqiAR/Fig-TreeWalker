@@ -1,3 +1,7 @@
+#include "Ast/astBase.hpp"
+#include "Core/fig_string.hpp"
+#include "Evaluator/Core/StatementResult.hpp"
+#include "Evaluator/Value/value.hpp"
 #include <Utils/utils.hpp>
 #include <Parser/parser.hpp>
 
@@ -7,6 +11,7 @@
 #include <filesystem>
 #include <fstream>
 #include <memory>
+#include <unordered_map>
 
 #ifndef SourceInfo
     #define SourceInfo(ptr) (ptr->sourcePath), (ptr->sourceLines)
@@ -34,20 +39,36 @@ namespace Fig
 
     ContextPtr Evaluator::loadModule(const std::filesystem::path &path)
     {
+        static std::unordered_map<FString, std::pair<std::vector<FString>, std::vector<Ast::AstBase>>> mod_ast_cache{};
+
         FString modSourcePath(path.string());
+
         std::ifstream file(path);
         assert(file.is_open());
 
-        std::string source((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
-        file.close();
-
-        std::vector<FString> modSourceLines = Utils::splitSource(FString(source));
-
-        Lexer lexer((FString(source)), modSourcePath, modSourceLines);
-        Parser parser(lexer, modSourcePath, modSourceLines);
         std::vector<Ast::AstBase> asts;
 
-        asts = parser.parseAll();
+        std::vector<FString> modSourceLines;
+
+        if (mod_ast_cache.contains(modSourcePath)) 
+        {
+            auto &[_sl, _asts] = mod_ast_cache[modSourcePath];
+            modSourceLines = _sl;
+            asts = _asts;
+        }
+        else
+        {
+            std::string source((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
+            file.close();
+
+            modSourceLines = Utils::splitSource(FString(source));
+
+            Lexer lexer((FString(source)), modSourcePath, modSourceLines);
+            Parser parser(lexer, modSourcePath, modSourceLines);
+
+            asts = parser.parseAll();
+            mod_ast_cache[modSourcePath] = {modSourceLines, asts};
+        }
 
         Evaluator evaluator;
         evaluator.SetSourcePath(modSourcePath);
@@ -76,6 +97,21 @@ namespace Fig
         ContextPtr modCtx = loadModule(path);
 
         ctx->getImplRegistry().insert(modCtx->getImplRegistry().begin(), modCtx->getImplRegistry().end()); // load impl
+
+        for (auto &[type, opRecord] : modCtx->getOpRegistry())
+        {
+            if (ctx->getOpRegistry().contains(type))
+            {
+                throw EvaluatorError(
+                    u8"DuplicateOperationOverload",
+                    std::format("Module `{}` and current context `{}` have conflict operation overload for `{}` object",
+                                modCtx->getScopeName().toBasicString(),
+                                ctx->getScopeName().toBasicString(),
+                                type.toString().toBasicString()),
+                    i);
+            }
+            ctx->getOpRegistry()[type] = opRecord;
+        }
 
         // std::cerr << modName.toBasicString() << '\n'; DEBUG
 

@@ -158,7 +158,7 @@ namespace Fig
         };
 
         ContextPtr instanceCtx =
-            std::make_shared<Context>(FString(std::format("<StructInstance {}>", structName.toBasicString())), ctx);
+            std::make_shared<Context>(FString(std::format("<StructInstance {}>", structName.toBasicString())), defContext);
         /*
             3 ways of calling constructor
             .1 Person {"Fig", 1, "IDK"};

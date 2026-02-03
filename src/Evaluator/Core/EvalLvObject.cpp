@@ -8,6 +8,35 @@ namespace Fig
     LvObject Evaluator::evalVarExpr(Ast::VarExpr var, ContextPtr ctx)
     {
         const FString &name = var->name;
+
+        // 调试信息
+        // std::cerr << "=== DEBUG evalVarExpr ===" << std::endl;
+        // std::cerr << "Looking for: " << name.toBasicString() << std::endl;
+        // std::cerr << "Context: " << ctx->getScopeName().toBasicString() << std::endl;
+
+        // // 打印上下文
+        // ContextPtr current = ctx;
+        // int depth = 0;
+        // while (current)
+        // {
+        //     std::cerr << "  [" << depth << "] " << current->getScopeName().toBasicString();
+        //     if (current->containsInThisScope(name))
+        //     {
+        //         std::cerr << " -> FOUND HERE!" << std::endl;
+        //         auto slot = current->get(name);
+        //         std::cerr << "    Type: " << slot->declaredType.toString().toBasicString() << std::endl;
+        //         std::cerr << "    Value: " << (slot->value ? slot->value->toString().toBasicString() : "null")
+        //                   << std::endl;
+        //     }
+        //     else
+        //     {
+        //         std::cerr << " -> not found" << std::endl;
+        //     }
+        //     current = current->parent;
+        //     depth++;
+        // }
+        // end
+
         if (!ctx->contains(name)) { throw EvaluatorError(u8"UndeclaredIdentifierError", name, var); }
         return LvObject(ctx->get(name), ctx);
     }
@@ -18,7 +47,26 @@ namespace Fig
         const FString &member = me->member;
         if (baseVal->getTypeInfo() == ValueType::Module)
         {
+            // std::cerr << "=== DEBUG evalMemberExpr (Module) ===" << std::endl;
+            // std::cerr << "Module object: " << baseVal->toString().toBasicString() << std::endl;
+
             const Module &mod = baseVal->as<Module>();
+            // std::cerr << "Module context: " << mod.ctx->getScopeName().toBasicString() << std::endl;
+            // std::cerr << "Looking for member: " << member.toBasicString() << std::endl;
+
+            // if (mod.ctx->contains(member))
+            // {
+            //     std::cerr << "Found in module context!" << std::endl;
+            //     if (mod.ctx->isVariablePublic(member)) { std::cerr << "And it's public!" << std::endl; }
+            //     else
+            //     {
+            //         std::cerr << "But it's NOT public!" << std::endl;
+            //     }
+            // }
+            // else
+            // {
+            //     std::cerr << "NOT found in module context!" << std::endl;
+            // }
             if (mod.ctx->contains(member) && mod.ctx->isVariablePublic(member))
             {
                 return LvObject(mod.ctx->get(member), ctx);

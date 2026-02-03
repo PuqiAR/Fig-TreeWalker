@@ -43,7 +43,18 @@ public struct Time
         return result;
     }
     // TODO: support `-` operator when Fig supports overload
+    // supported now! 26-2-2. PuqiAR
 } 
+
+impl Operation for Time
+{
+    Sub(l: Time, r: Time)
+    {
+        return new Time{
+            l.since(r)
+        };
+    }
+}
 
 public func now() -> Time
 {
