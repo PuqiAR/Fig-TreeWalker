@@ -1,4 +1,4 @@
-#include "Ast/Expressions/VarExpr.hpp"
+#include <Ast/Expressions/VarExpr.hpp>
 #include <Ast/Statements/ErrorFlow.hpp>
 #include <Ast/Statements/ImplementSt.hpp>
 #include <Ast/astBase.hpp>
@@ -194,7 +194,8 @@ namespace Fig
             else if (isThis(TokenType::Colon)) // :
             {
                 next(); // skip `:`
-                Ast::Expression type_exp = parseExpression(0, TokenType::Comma, TokenType::RightParen, TokenType::Assign);
+                Ast::Expression type_exp =
+                    parseExpression(0, TokenType::Comma, TokenType::RightParen, TokenType::Assign);
                 if (isThis(TokenType::Assign)) // =
                 {
                     next(); // skip `=`
@@ -927,10 +928,7 @@ namespace Fig
         }
         expect(TokenType::RightBrace);
         next(); // consume `}`
-        return makeAst<Ast::InitExprAst>(
-            structe,
-            args,
-            static_cast<Ast::InitExprAst::InitMode>(mode));
+        return makeAst<Ast::InitExprAst>(structe, args, static_cast<Ast::InitExprAst::InitMode>(mode));
     }
 
     Ast::Expression Parser::__parseTupleOrParenExpr()

@@ -1,6 +1,6 @@
-#include "Ast/astBase.hpp"
-#include "Error/error.hpp"
-#include "Error/errorLog.hpp"
+#include <Ast/astBase.hpp>
+#include <Error/error.hpp>
+#include <Error/errorLog.hpp>
 #include <Core/fig_string.hpp>
 #include <Repl/Repl.hpp>
 #include <vector>
@@ -31,10 +31,7 @@ namespace Fig
                 ostream << Object::getNullInstance()->toString().toBasicString();
                 continue;
             }
-            if (line == u8"!exit")
-            {
-                break;
-            }
+            if (line == u8"!exit") { break; }
 
             Lexer lexer(line, sourcePath, sourceLines);
             Parser parser(lexer, sourcePath, sourceLines);
@@ -50,7 +47,7 @@ namespace Fig
             }
             catch (AddressableError &e)
             {
-                ostream << "Oops!\n"; 
+                ostream << "Oops!\n";
                 ErrorLog::logAddressableError(e);
                 ostream << "\n";
             }

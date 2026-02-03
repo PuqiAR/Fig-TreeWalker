@@ -1,11 +1,12 @@
-#include "Ast/AccessModifier.hpp"
-#include "Ast/Expressions/FunctionCall.hpp"
-#include "Ast/astBase.hpp"
-#include "Ast/functionParameters.hpp"
-#include "Core/fig_string.hpp"
-#include "Evaluator/Core/StatementResult.hpp"
-#include "Evaluator/Value/Type.hpp"
-#include "Evaluator/Value/value.hpp"
+#include <Ast/AccessModifier.hpp>
+#include <Ast/Expressions/FunctionCall.hpp>
+#include <Ast/astBase.hpp>
+#include <Ast/functionParameters.hpp>
+#include <Core/fig_string.hpp>
+#include <Evaluator/Core/StatementResult.hpp>
+#include <Evaluator/Value/Type.hpp>
+#include <Evaluator/Value/structType.hpp>
+#include <Evaluator/Value/value.hpp>
 #include <Evaluator/Value/LvObject.hpp>
 #include <Evaluator/evaluator.hpp>
 #include <Evaluator/evaluator_error.hpp>
@@ -236,6 +237,15 @@ namespace Fig
                         add(l, r) {...}
                     }
                     */
+                    if (ValueType::isTypeBuiltin(structType))
+                    {
+                        throw EvaluatorError(
+                            u8"BadUserError",
+                            std::format("Don't overload built-in type operators plz! `{}`", prettyType(structTypeObj).toBasicString()),
+                            ip
+                        );
+                    }
+
                     using enum Ast::Operator;
                     static const std::unordered_map<FString, std::pair<Ast::Operator, size_t>> magic_name_to_op = {
                         // 算术

@@ -1,7 +1,7 @@
-#include "Ast/astBase.hpp"
-#include "Core/fig_string.hpp"
-#include "Evaluator/Core/StatementResult.hpp"
-#include "Evaluator/Value/value.hpp"
+#include <Ast/astBase.hpp>
+#include <Core/fig_string.hpp>
+#include <Evaluator/Core/StatementResult.hpp>
+#include <Evaluator/Value/value.hpp>
 #include <Utils/utils.hpp>
 #include <Parser/parser.hpp>
 

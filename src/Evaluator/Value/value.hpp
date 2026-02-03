@@ -1,5 +1,5 @@
 #pragma once
-#include "Core/fig_string.hpp"
+#include <Core/fig_string.hpp>
 #include <Evaluator/Value/function.hpp>
 #include <Evaluator/Value/interface.hpp>
 #include <Evaluator/Value/structType.hpp>
@@ -623,7 +623,7 @@ namespace Fig
         friend Object operator!(const Object &v)
         {
             if (!v.is<ValueType::BoolClass>())
-                 throw ValueError(
+                throw ValueError(
                     FString(std::format("Logical NOT requires bool: '{}'", v.getTypeInfo().name.toBasicString())));
             return Object(!v.as<ValueType::BoolClass>());
         }

@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Token/token.hpp"
+#include <Token/token.hpp>
 #include <Ast/astBase.hpp>
 #include <Ast/ast.hpp>
 #include <Lexer/lexer.hpp>
@@ -154,10 +154,8 @@ namespace Fig
             tokenPruduced++;
             if (tok == IllegalTok) throw lexer.getError();
             currentTokenIndex = tokenPruduced - 1;
-            setCurrentAAI(Ast::AstAddressInfo{.line = tok.line,
-                                              .column = tok.column,
-                                              .sourcePath = sourcePathPtr,
-                                              .sourceLines = sourceLinesPtr});
+            setCurrentAAI(Ast::AstAddressInfo{
+                .line = tok.line, .column = tok.column, .sourcePath = sourcePathPtr, .sourceLines = sourceLinesPtr});
 
             previousTokens.push_back(tok);
         }
@@ -314,16 +312,18 @@ namespace Fig
         Ast::MapExpr __parseMapExpr();   // entry: current is `{`
 
         Ast::InitExpr __parseInitExpr(Ast::Expression); // entry: current is `{`, ahead is struct type exp.
-    
 
-        Ast::Expression __parseTupleOrParenExpr();      // entry: current is `(`
+        Ast::Expression __parseTupleOrParenExpr(); // entry: current is `(`
 
         Ast::FunctionLiteralExpr __parseFunctionLiteralExpr(); // entry: current is Token::LParen after Token::Function
 
         Ast::Import __parseImport(); // entry: current is Token::Import
 
         Ast::Statement __parseStatement(bool = true); // entry: (idk)
-        Ast::Expression parseExpression(Precedence, TokenType = TokenType::Semicolon, TokenType = TokenType::Semicolon, TokenType = TokenType::Semicolon);
+        Ast::Expression parseExpression(Precedence,
+                                        TokenType = TokenType::Semicolon,
+                                        TokenType = TokenType::Semicolon,
+                                        TokenType = TokenType::Semicolon);
         std::vector<Ast::AstBase> parseAll();
     };
 }; // namespace Fig
