@@ -1,3 +1,4 @@
+#include "Ast/Expressions/InitExpr.hpp"
 #include <Ast/Expressions/VarExpr.hpp>
 #include <Ast/Statements/ErrorFlow.hpp>
 #include <Ast/Statements/ImplementSt.hpp>
@@ -6,6 +7,7 @@
 #include <Error/error.hpp>
 #include <Token/token.hpp>
 #include <Parser/parser.hpp>
+#include <memory>
 
 namespace Fig
 {
@@ -881,10 +883,6 @@ namespace Fig
             if (mode == 0)
             {
                 if (isThis(TokenType::Identifier) && isNext(TokenType::Colon)) { mode = 2; }
-                else if (isThis(TokenType::Identifier) && (isNext(TokenType::Comma) || isNext(TokenType::RightBrace)))
-                {
-                    mode = 3;
-                }
                 else
                 {
                     mode = 1;
@@ -908,16 +906,6 @@ namespace Fig
                 Ast::Expression expr = parseExpression(0, TokenType::Comma, TokenType::RightBrace);
                 args.push_back({fieldName, std::move(expr)});
             }
-            else if (mode == 3)
-            {
-                // 3 Person {name, age, sex};
-                expect(TokenType::Identifier);
-                FString fieldName = currentToken().getValue();
-                Ast::Expression expr = makeAst<Ast::VarExprAst>(fieldName);
-                args.push_back({fieldName, std::move(expr)});
-                next(); // consume identifier
-            }
-
             if (isThis(TokenType::Comma))
             {
                 next(); // consume comma
@@ -929,6 +917,33 @@ namespace Fig
                                         currentToken().toString().toBasicString())));
             }
         }
+        bool shorthand = true;
+        if (mode == 1)
+        {
+            for (auto &[name, exp] : args) 
+            {
+                if (!name.empty())
+                {
+                    shorthand = false;
+                }
+                if (exp->getType() != Ast::AstType::VarExpr)
+                {
+                    shorthand = false;
+                }
+            }
+            if (shorthand) 
+            {
+                mode = 3; // all are identifiers, so it's shorthand mode, not positional
+                std::vector<std::pair<FString, Ast::Expression>> nargs;
+                for (auto &[name, exp] : args)
+                {
+                    const Ast::VarExpr var = std::static_pointer_cast<Ast::VarExprAst>(exp);
+                    nargs.push_back({var->name, exp});
+                }
+                args = nargs;
+            }
+        }
+
         expect(TokenType::RightBrace);
         next(); // consume `}`
         return makeAst<Ast::InitExprAst>(structe, args, static_cast<Ast::InitExprAst::InitMode>(mode));

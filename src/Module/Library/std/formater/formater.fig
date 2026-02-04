@@ -5,7 +5,7 @@
     Copyright © 2025 PuqiAR. All rights reserved.
 */
 
-import std.value; // `type` function and string_from
+// import std.value; // `type` function and string_from
 
 
 struct FormatError 
@@ -37,7 +37,7 @@ public func format(objects ...) -> Any
     }
 
     var fmt := objects[0];
-    var fmtType := value.type(fmt);
+    var fmtType := type(fmt);
     if fmtType != "String"
     {
         throw new FormatError{"arg 0 (fmt) must be String type, got " + fmtType};
@@ -88,7 +88,7 @@ public func format(objects ...) -> Any
                 throw new FormatError{"require enough format expression"};
             }
             
-            result += value.string_from(objects[argIndex]);
+            result += objects[argIndex] as String;
             argIndex += 1;
             
             i = endIndex + 1;
@@ -116,7 +116,7 @@ public func format(objects ...) -> Any
 
 public func formatByListArgs(objects) -> Any
 {
-    if value.type(objects) != "List"
+    if not (objects is List)
     {
         return null;
     }
@@ -126,7 +126,7 @@ if objects.length() < 1
     }
 
     var fmt := objects[0];
-    var fmtType := value.type(fmt);
+    var fmtType := type(fmt);
     if fmtType != "String"
     {
         throw new FormatError{"arg 0 (fmt) must be String type, got " + fmtType};
@@ -177,7 +177,7 @@ if objects.length() < 1
                 throw new FormatError{"require enough format expression"};
             }
             
-            result += value.string_from(objects[argIndex]);
+            result += objects[argIndex] as String;
             argIndex += 1;
             
             i = endIndex + 1;
