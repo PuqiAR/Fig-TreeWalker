@@ -89,13 +89,16 @@ jobs:
           GITEA_TOKEN: ${{ secrets.CI_TOKEN }}
         run: |
           VERSION="${{ env.VERSION }}"
+          if [ -z "$VERSION" ]; then
+            VERSION="${{ github.ref_name }}"
+          fi
           COMMIT_MSG="${{ env.COMMIT_MSG }}"
           API="https://git.fig-lang.cn/api/v1/repos/${{ github.repository }}"
           
           echo "正在为Linux版本创建/更新发布 $VERSION ..."
           
           # 确保正确转义
-          python3 -c "import json, os; print(json.dumps({'tag_name': os.environ['VERSION'], 'name': 'Fig ' + os.environ['VERSION'], 'body': os.environ.get('COMMIT_MSG', ''), 'draft': False, 'prerelease': False}))" > release_body.json
+          VERSION="$VERSION" COMMIT_MSG="$COMMIT_MSG" python3 -c "import json, os; print(json.dumps({'tag_name': os.environ.get('VERSION', ''), 'name': 'Fig ' + os.environ.get('VERSION', ''), 'body': os.environ.get('COMMIT_MSG', ''), 'draft': False, 'prerelease': False}))" > release_body.json
           
           RESPONSE=$(curl -sS -X POST -H "Authorization: token $GITEA_TOKEN" \
             -H "Content-Type: application/json" \
@@ -183,13 +186,13 @@ jobs:
             $VERSION = "${{ github.ref_name }}"
           }
           Write-Host "构建版本: $VERSION"
-          "VERSION=$VERSION" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          
+          # 确保无 BOM 的 UTF8
+          [System.IO.File]::AppendAllText($env:GITHUB_ENV, "VERSION=$VERSION`n")
           
           # 提交消息
           $COMMIT_MSG = git log -1 --pretty=%B
-          "COMMIT_MSG<<EOF" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
-          $COMMIT_MSG | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
-          "EOF" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          [System.IO.File]::AppendAllText($env:GITHUB_ENV, "COMMIT_MSG<<EOF`n$COMMIT_MSG`nEOF`n")
 
       - name: 构建项目 (Windows Native)
         run: |
@@ -212,6 +215,10 @@ jobs:
           [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
           
           $VERSION = $env:VERSION
+          if (-not $VERSION) {
+            $VERSION = "${{ github.ref_name }}"
+            Write-Host "⚠️  警告：从环境变量获取 VERSION 失败，回退到 github.ref_name: $VERSION"
+          }
           Write-Host "打包版本: $VERSION"
           
           $PACKAGE_NAME = "Fig-${VERSION}-windows-x86_64"
@@ -251,6 +258,21 @@ jobs:
           
           $VERSION = $env:VERSION
           $COMMIT_MSG = $env:COMMIT_MSG
+          
+          # 如果环境变量获取失败，尝试直接使用上下文变量
+          if (-not $VERSION) {
+            $VERSION = "${{ github.ref_name }}"
+            Write-Host "⚠️  警告：从环境变量获取 VERSION 失败，尝试回退到 github.ref_name: $VERSION"
+          }
+          
+          if (-not $VERSION) {
+            Write-Host "❌ 错误：版本号仍然为空，无法创建发布。"
+            exit 1
+          }
+          
+          if (-not $COMMIT_MSG) {
+            Write-Host "⚠️  警告：从环境变量获取 COMMIT_MSG 失败"
+          }
           
           Write-Host "正在上传Windows版本到发布: $VERSION"
           
