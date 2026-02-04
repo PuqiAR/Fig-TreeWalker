@@ -5,10 +5,11 @@
 #include <Evaluator/Value/LvObject.hpp>
 #include <Evaluator/evaluator.hpp>
 #include <Evaluator/evaluator_error.hpp>
+#include <Evaluator/Core/ExprResult.hpp>
 
 namespace Fig
 {
-    RvObject Evaluator::executeFunction(const Function &fn,
+   ExprResult Evaluator::executeFunction(const Function &fn,
                                         const Ast::FunctionCallArgs &args,
                                         ContextPtr fnCtx) // new context for fn, already filled paras
     {
@@ -28,9 +29,7 @@ namespace Fig
             StatementResult sr = evalStatement(stmt, fnCtx);
             if (sr.isError())
             {
-                throw EvaluatorError(u8"UncaughtExceptionError",
-                                     std::format("Uncaught exception: {}", sr.result->toString().toBasicString()),
-                                     stmt);
+                handle_error(sr, stmt, fnCtx);
             }
             if (!sr.isNormal())
             {
@@ -39,9 +38,9 @@ namespace Fig
         }
         return Object::getNullInstance();
     }
-    RvObject Evaluator::evalFunctionCall(const Ast::FunctionCall &call, ContextPtr ctx)
+    ExprResult Evaluator::evalFunctionCall(const Ast::FunctionCall &call, ContextPtr ctx)
     {
-        RvObject fnObj = eval(call->callee, ctx);
+        RvObject fnObj = check_unwrap(eval(call->callee, ctx));
         if (fnObj->getTypeInfo() != ValueType::Function)
         {
             throw EvaluatorError(u8"ObjectNotCallable",
@@ -57,7 +56,7 @@ namespace Fig
         Ast::FunctionCallArgs evaluatedArgs;
         if (fn.type == Function::Builtin || fn.type == Function::MemberType)
         {
-            for (const auto &argExpr : fnArgs.argv) { evaluatedArgs.argv.push_back(eval(argExpr, ctx)); }
+            for (const auto &argExpr : fnArgs.argv) { evaluatedArgs.argv.push_back(check_unwrap(eval(argExpr, ctx))); }
             if (fn.builtinParamCount != -1 && fn.builtinParamCount != evaluatedArgs.getLength())
             {
                 throw EvaluatorError(u8"BuiltinArgumentMismatchError",
@@ -96,9 +95,9 @@ namespace Fig
         size_t i;
         for (i = 0; i < fnParas.posParas.size(); i++)
         {
-            const TypeInfo &expectedType = actualType(eval(fnParas.posParas[i].second, fn.closureContext)); // look up type info, if exists a type
+            const TypeInfo &expectedType = actualType(check_unwrap(eval(fnParas.posParas[i].second, fn.closureContext))); // look up type info, if exists a type
                                                                                   // with the name, use it, else throw
-            ObjectPtr argVal = eval(fnArgs.argv[i], ctx);
+            ObjectPtr argVal = check_unwrap(eval(fnArgs.argv[i], ctx));
             TypeInfo actualType = argVal->getTypeInfo();
             if (!isTypeMatch(expectedType, argVal, fn.closureContext))
             {
@@ -116,9 +115,10 @@ namespace Fig
         for (; i < fnArgs.getLength(); i++)
         {
             size_t defParamIndex = i - fnParas.posParas.size();
-            const TypeInfo &expectedType = actualType(eval(fnParas.defParas[defParamIndex].second.first, fn.closureContext));
+            const TypeInfo &expectedType =
+                actualType(check_unwrap(eval(fnParas.defParas[defParamIndex].second.first, fn.closureContext)));
 
-            ObjectPtr defaultVal = eval(fnParas.defParas[defParamIndex].second.second, fn.closureContext);
+            ObjectPtr defaultVal = check_unwrap(eval(fnParas.defParas[defParamIndex].second.second, fn.closureContext));
             if (!isTypeMatch(expectedType, defaultVal, fn.closureContext))
             {
                 throw EvaluatorError(
@@ -132,7 +132,7 @@ namespace Fig
                     fnArgs.argv[i]);
             }
 
-            ObjectPtr argVal = eval(fnArgs.argv[i], ctx);
+            ObjectPtr argVal = check_unwrap(eval(fnArgs.argv[i], ctx));
             TypeInfo actualType = argVal->getTypeInfo();
             if (!isTypeMatch(expectedType, argVal, fn.closureContext))
             {
@@ -150,7 +150,7 @@ namespace Fig
         for (; i < fnParas.size(); i++)
         {
             size_t defParamIndex = i - fnParas.posParas.size();
-            ObjectPtr defaultVal = eval(fnParas.defParas[defParamIndex].second.second, fn.closureContext);
+            ObjectPtr defaultVal = check_unwrap(eval(fnParas.defParas[defParamIndex].second.second, fn.closureContext));
             evaluatedArgs.argv.push_back(defaultVal);
         }
 
@@ -162,13 +162,14 @@ namespace Fig
             if (j < fnParas.posParas.size())
             {
                 paramName = fnParas.posParas[j].first;
-                paramType = actualType(eval(fnParas.posParas[j].second, fn.closureContext));
+                paramType = actualType(check_unwrap(eval(fnParas.posParas[j].second, fn.closureContext)));
             }
             else
             {
                 size_t defParamIndex = j - fnParas.posParas.size();
                 paramName = fnParas.defParas[defParamIndex].first;
-                paramType = actualType(eval(fnParas.defParas[defParamIndex].second.first, fn.closureContext));
+                paramType =
+                    actualType(check_unwrap(eval(fnParas.defParas[defParamIndex].second.first, fn.closureContext)));
             }
             AccessModifier argAm = AccessModifier::Normal;
             newContext->def(paramName, paramType, argAm, evaluatedArgs.argv[j]);
@@ -180,7 +181,7 @@ namespace Fig
         List list;
         for (auto &exp : fnArgs.argv)
         {
-            list.push_back(eval(exp, ctx)); // eval arguments in current scope
+            list.push_back(check_unwrap(eval(exp, ctx))); // eval arguments in current scope
         }
         newContext->def(fnParas.variadicPara, ValueType::List, AccessModifier::Normal, std::make_shared<Object>(list));
         goto ExecuteBody;
@@ -188,7 +189,7 @@ namespace Fig
 
     ExecuteBody: {
         // execute function body
-        ObjectPtr retVal = executeFunction(fn, evaluatedArgs, newContext);
+        ObjectPtr retVal = check_unwrap(executeFunction(fn, evaluatedArgs, newContext));
 
         if (!isTypeMatch(fn.retType, retVal, ctx))
         {

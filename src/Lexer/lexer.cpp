@@ -97,6 +97,7 @@ namespace Fig
         {FString(u8"catch"), TokenType::Catch},
         {FString(u8"throw"), TokenType::Throw},
         {FString(u8"Finally"), TokenType::Finally},
+        {FString(u8"as"), TokenType::As},
 
         // {FString(u8"Null"), TokenType::TypeNull},
         // {FString(u8"Int"), TokenType::TypeInt},

@@ -1,9 +1,10 @@
 #include <Evaluator/evaluator.hpp>
 #include <Evaluator/evaluator_error.hpp>
+#include <Evaluator/Core/ExprResult.hpp>
 
 namespace Fig
 {
-    RvObject Evaluator::eval(Ast::Expression exp, ContextPtr ctx)
+    ExprResult Evaluator::eval(Ast::Expression exp, ContextPtr ctx)
     {
         using Ast::AstType;
         AstType type = exp->getType();
@@ -16,8 +17,8 @@ namespace Fig
             }
             case AstType::VarExpr: {
                 auto varExpr = std::static_pointer_cast<Ast::VarExprAst>(exp);
-               
-                return evalVarExpr(varExpr, ctx).get(); // LvObject -> RvObject
+
+                return check_unwrap_lv(evalVarExpr(varExpr, ctx)).get(); // LvObject -> RvObject
             }
             case AstType::BinaryExpr: {
                 auto bin = std::static_pointer_cast<Ast::BinaryExprAst>(exp);
@@ -35,7 +36,7 @@ namespace Fig
                 return evalTernary(te, ctx);
             }
             case AstType::MemberExpr:
-            case AstType::IndexExpr: return evalLv(exp, ctx).get();
+            case AstType::IndexExpr: return check_unwrap_lv(evalLv(exp, ctx)).get();
 
             case AstType::FunctionCall: {
                 auto fnCall = std::static_pointer_cast<Ast::FunctionCallExpr>(exp);
@@ -82,7 +83,7 @@ namespace Fig
                
 
                 List list;
-                for (auto &exp : lstExpr->val) { list.push_back(eval(exp, ctx)); }
+                for (auto &exp : lstExpr->val) { list.push_back(check_unwrap(eval(exp, ctx))); }
                 return std::make_shared<Object>(std::move(list));
             }
 
@@ -91,7 +92,9 @@ namespace Fig
                
 
                 Map map;
-                for (auto &[key, value] : mapExpr->val) { map[eval(key, ctx)] = eval(value, ctx); }
+                for (auto &[key, value] : mapExpr->val) {
+                    map[check_unwrap(eval(key, ctx))] = check_unwrap(eval(value, ctx));
+                }
                 return std::make_shared<Object>(std::move(map));
             }
 

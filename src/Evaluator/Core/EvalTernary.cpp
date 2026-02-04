@@ -1,12 +1,13 @@
 #include <Evaluator/evaluator.hpp>
 #include <Evaluator/evaluator_error.hpp>
+#include <Evaluator/Core/ExprResult.hpp>
 
 namespace Fig
 {
 
-    RvObject Evaluator::evalTernary(Ast::TernaryExpr te, ContextPtr ctx)
+    ExprResult Evaluator::evalTernary(Ast::TernaryExpr te, ContextPtr ctx)
     {
-        RvObject condVal = eval(te->condition, ctx);
+        RvObject condVal = check_unwrap(eval(te->condition, ctx));
         if (condVal->getTypeInfo() != ValueType::Bool)
         {
             throw EvaluatorError(

@@ -26,12 +26,9 @@ namespace Fig
             }
         */
 
-        inline static const TypeInfo &getErrorInterfaceTypeInfo()
-        {
-            static const TypeInfo ErrorInterfaceTypeInfo(u8"Error", true);
-            return ErrorInterfaceTypeInfo;
-        }
+        const TypeInfo &getErrorInterfaceTypeInfo();
 
+        const TypeInfo &getTypeErrorStructTypeInfo();
         /*
             interface Operation
             {
@@ -40,11 +37,7 @@ namespace Fig
         
         */
 
-        inline static const TypeInfo &getOperationInterfaceTypeInfo() 
-        {
-            static const TypeInfo OperationInterfaceTypeInfo(u8"Operation", true);
-            return OperationInterfaceTypeInfo;
-        }
+        const TypeInfo &getOperationInterfaceTypeInfo();
 
         const std::unordered_map<FString, ObjectPtr> &getBuiltinValues();
 

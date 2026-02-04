@@ -35,7 +35,7 @@ namespace Fig::Ast
         TupleExpr, // (1, 2, 3)
         MapExpr,   // {a: 1}
 
-        InitExpr,  // struct{"123", 456}
+        InitExpr, // struct{"123", 456}
         FunctionLiteralExpr,
 
         /* Statement */
@@ -199,6 +199,9 @@ namespace Fig::Ast
         GreaterEqual, // >=
         Is,           // a is b
 
+        // 转换
+        As, // 3.14 as Int
+
         // 三目
         TernaryCond,
 
@@ -235,6 +238,8 @@ namespace Fig::Ast
         Operator::Equal,       Operator::NotEqual,     Operator::Less,        Operator::LessEqual,
         Operator::Greater,     Operator::GreaterEqual, Operator::Is,
 
+        Operator::As,
+
         Operator::BitAnd,      Operator::BitOr,        Operator::BitXor,      Operator::BitNot,
         Operator::ShiftLeft,   Operator::ShiftRight,
 
@@ -270,6 +275,9 @@ namespace Fig::Ast
         {TokenType::Greater, Operator::Greater},
         {TokenType::GreaterEqual, Operator::GreaterEqual},
         {TokenType::Is, Operator::Is},
+
+        // 转换
+        {TokenType::As, Operator::As},
 
         // 三目
         {TokenType::Question, Operator::TernaryCond},

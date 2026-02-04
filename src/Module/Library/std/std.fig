@@ -3,7 +3,12 @@
     Library/std/std.fig
 */
 
-import io;    // link std.io
-import value; // link std.type
-import math;  // link std.math
-import tester; // link std.tester
+import io as std_io;
+import value as std_value;
+import math as std_math; 
+import test as std_test; 
+
+public const io := std_io;        // link std.io
+public const value := std_value;  // link std.type
+public const math := std_math;    // link std.math
+public const test := std_test;    // link std.test

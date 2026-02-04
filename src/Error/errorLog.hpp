@@ -97,6 +97,14 @@ namespace Fig
             std::print("{}{}{}", colorCode, msg, TerminalColors::Reset);
         }
 
+        inline void logFigErrorInterface(const FString &errorClass, const FString &errorMessage)
+        {
+            namespace TC = TerminalColors;
+            coloredPrint(TC::LightWhite, "Uncaught Fig exception:\n");
+            coloredPrint(TC::LightRed, "✖  ");
+            coloredPrint(TC::Red, errorClass.toBasicString() + ": ");
+            coloredPrint(TC::Red, errorMessage.toBasicString() + "\n");
+        }
 
         inline void logAddressableError(const AddressableError &err)
         {
@@ -117,7 +125,6 @@ namespace Fig
             if (fileName != u8"<stdin>")
             {
                 lineContent = ((int64_t(err.getLine()) - int64_t(1)) >= 0 ? sourceLines[err.getLine() - 1] : u8"<No Source>");
-                FString pointerLine;
                 for (size_t i = 1; i < err.getColumn(); ++i)
                 {
                     if (lineContent[i - 1] == U'\t') { pointerLine += U'\t'; }

@@ -2,17 +2,18 @@
 #include <Evaluator/Value/LvObject.hpp>
 #include <Evaluator/evaluator.hpp>
 #include <Evaluator/evaluator_error.hpp>
+#include <Evaluator/Core/ExprResult.hpp>
 
 namespace Fig
 {
-    RvObject Evaluator::evalUnary(Ast::UnaryExpr un, ContextPtr ctx)
+    ExprResult Evaluator::evalUnary(Ast::UnaryExpr un, ContextPtr ctx)
     {
         using Ast::Operator;
         Operator op = un->op;
         Ast::Expression exp = un->exp;
-        ObjectPtr value = eval(exp, ctx);
+        ObjectPtr value = check_unwrap(eval(exp, ctx));
 
-        const auto &tryInvokeOverloadFn = [ctx, op](const ObjectPtr &rhs, const std::function<ObjectPtr()> &rollback) {
+        const auto &tryInvokeOverloadFn = [ctx, op](const ObjectPtr &rhs, const std::function<ExprResult()> &rollback) {
             if (rhs->is<StructInstance>())
             {
                 // 运算符重载

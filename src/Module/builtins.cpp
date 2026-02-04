@@ -1,13 +1,42 @@
+#include "Ast/Expressions/BinaryExpr.hpp"
+#include "Ast/Expressions/FunctionCall.hpp"
+#include "Ast/Expressions/ValueExpr.hpp"
+#include "Ast/Expressions/VarExpr.hpp"
+#include "Ast/Statements/ControlSt.hpp"
+#include "Ast/astBase.hpp"
+#include "Ast/functionParameters.hpp"
+#include <Evaluator/Context/context.hpp>
+#include <Core/fig_string.hpp>
+#include <Ast/AccessModifier.hpp>
+#include <Evaluator/Value/structType.hpp>
+#include <Evaluator/Value/value.hpp>
 #include <Module/builtins.hpp>
 
+#include <memory>
 #include <print>
 #include <iostream>
 #include <cmath>
 #include <chrono>
 #include <numeric>
+#include <unordered_map>
 
 namespace Fig::Builtins
 {
+    const TypeInfo &getErrorInterfaceTypeInfo()
+    {
+        static const TypeInfo ErrorInterfaceTypeInfo(u8"Error", true);
+        return ErrorInterfaceTypeInfo;
+    }
+    const TypeInfo &getTypeErrorStructTypeInfo()
+    {
+        static const TypeInfo TypeErrorStructTypeInfo(u8"TypeError", true);
+        return TypeErrorStructTypeInfo;
+    }
+    const TypeInfo &getOperationInterfaceTypeInfo()
+    {
+        static const TypeInfo OperationInterfaceTypeInfo(u8"Operation", true);
+        return OperationInterfaceTypeInfo;
+    }
     const std::unordered_map<FString, ObjectPtr> &getBuiltinValues()
     {
         static const std::unordered_map<FString, ObjectPtr> builtinValues = {
@@ -28,7 +57,12 @@ namespace Fig::Builtins
                                                                           Ast::FunctionParameters({}, {}),
                                                                           std::make_shared<Ast::VarExprAst>(u8"String"),
                                                                           nullptr)}))},
-                {u8"Operation", std::make_shared<Object>(InterfaceType(getOperationInterfaceTypeInfo(), {}))},
+                {u8"TypeError", std::make_shared<Object>(StructType(
+                    getTypeErrorStructTypeInfo(),
+                    std::make_shared<Context>(u8"<Built-in `TypeError`>"),
+                    {Field(AccessModifier::Public, u8"msg", ValueType::String, nullptr)}
+                ))},
+            {u8"Operation", std::make_shared<Object>(InterfaceType(getOperationInterfaceTypeInfo(), {}))},
 
             {u8"Any", std::make_shared<Object>(StructType(ValueType::Any, nullptr, {}, true))},
             {u8"Int", std::make_shared<Object>(StructType(ValueType::Int, nullptr, {}, true))},
@@ -119,8 +153,8 @@ namespace Fig::Builtins
              }},
             {u8"__fvalue_type",
              [](const std::vector<ObjectPtr> &args) -> ObjectPtr {
-                 return std::make_shared<Object>(args[0]->getTypeInfo().toString()); 
-            }},
+                 return std::make_shared<Object>(args[0]->getTypeInfo().toString());
+             }},
             {u8"__fvalue_int_parse",
              [](const std::vector<ObjectPtr> &args) -> ObjectPtr {
                  FString str = args[0]->as<ValueType::StringClass>();
@@ -380,4 +414,4 @@ namespace Fig::Builtins
         };
         return builtinFunctions;
     }
-}
+} // namespace Fig::Builtins

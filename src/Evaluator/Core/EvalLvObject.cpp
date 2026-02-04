@@ -1,3 +1,4 @@
+#include "Evaluator/Core/ExprResult.hpp"
 #include <Evaluator/Value/value.hpp>
 #include <Evaluator/Value/LvObject.hpp>
 #include <Evaluator/evaluator.hpp>
@@ -5,7 +6,7 @@
 
 namespace Fig
 {
-    LvObject Evaluator::evalVarExpr(Ast::VarExpr var, ContextPtr ctx)
+    ExprResult Evaluator::evalVarExpr(Ast::VarExpr var, ContextPtr ctx)
     {
         const FString &name = var->name;
 
@@ -40,10 +41,10 @@ namespace Fig
         if (!ctx->contains(name)) { throw EvaluatorError(u8"UndeclaredIdentifierError", name, var); }
         return LvObject(ctx->get(name), ctx);
     }
-    LvObject Evaluator::evalMemberExpr(Ast::MemberExpr me, ContextPtr ctx)
+    ExprResult Evaluator::evalMemberExpr(Ast::MemberExpr me, ContextPtr ctx)
     {
         // LvObject base = evalLv(me->base, ctx);
-        RvObject baseVal = eval(me->base, ctx);
+        RvObject baseVal = check_unwrap(eval(me->base, ctx));
         const FString &member = me->member;
         if (baseVal->getTypeInfo() == ValueType::Module)
         {
@@ -144,7 +145,7 @@ namespace Fig
         else if (ctx->hasDefaultImplementedMethod(si.parentType, member))
         {
             const auto &ifm = ctx->getDefaultImplementedMethod(si.parentType, member);
-            Function fn(member, ifm.paras, actualType(eval(ifm.returnType, ctx)), ifm.defaultBody, ctx);
+            Function fn(member, ifm.paras, actualType(check_unwrap(eval(ifm.returnType, ctx))), ifm.defaultBody, ctx);
 
             return LvObject(std::make_shared<VariableSlot>(
                                 member, std::make_shared<Object>(fn), ValueType::Function, AccessModifier::PublicConst),
@@ -159,10 +160,10 @@ namespace Fig
                                  me->base);
         }
     }
-    LvObject Evaluator::evalIndexExpr(Ast::IndexExpr ie, ContextPtr ctx)
+    ExprResult Evaluator::evalIndexExpr(Ast::IndexExpr ie, ContextPtr ctx)
     {
-        RvObject base = eval(ie->base, ctx);
-        RvObject index = eval(ie->index, ctx);
+        RvObject base = check_unwrap(eval(ie->base, ctx));
+        RvObject index = check_unwrap(eval(ie->index, ctx));
 
         const TypeInfo &type = base.get()->getTypeInfo();
 
@@ -215,7 +216,7 @@ namespace Fig
                 ie->base);
         }
     }
-    LvObject Evaluator::evalLv(Ast::Expression exp, ContextPtr ctx)
+    ExprResult Evaluator::evalLv(Ast::Expression exp, ContextPtr ctx)
     {
         using Ast::Operator;
         using Ast::AstType;

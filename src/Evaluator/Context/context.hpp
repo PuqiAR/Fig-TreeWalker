@@ -16,6 +16,7 @@
 #include <Core/fig_string.hpp>
 #include <Evaluator/Value/value.hpp>
 #include <Evaluator/Value/VariableSlot.hpp>
+#include <Evaluator/Core/ExprResult.hpp>
 
 namespace Fig
 {
@@ -30,8 +31,8 @@ namespace Fig
 
     struct OperationRecord
     {
-        using UnaryOpFn = std::function<ObjectPtr(const ObjectPtr &)>;
-        using BinaryOpFn = std::function<ObjectPtr(const ObjectPtr &, const ObjectPtr &)>;
+        using UnaryOpFn = std::function<ExprResult(const ObjectPtr &)>;
+        using BinaryOpFn = std::function<ExprResult(const ObjectPtr &, const ObjectPtr &)>;
 
         std::unordered_map<Ast::Operator, UnaryOpFn> unOpRec;
         std::unordered_map<Ast::Operator, BinaryOpFn> binOpRec;

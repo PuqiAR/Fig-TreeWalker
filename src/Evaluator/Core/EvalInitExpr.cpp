@@ -1,3 +1,4 @@
+#include <Evaluator/Core/ExprResult.hpp>
 #include <Evaluator/Value/value.hpp>
 #include <Evaluator/Value/LvObject.hpp>
 #include <Evaluator/evaluator.hpp>
@@ -5,9 +6,9 @@
 
 namespace Fig
 {
-    RvObject Evaluator::evalInitExpr(Ast::InitExpr initExpr, ContextPtr ctx)
+    ExprResult Evaluator::evalInitExpr(Ast::InitExpr initExpr, ContextPtr ctx)
     {
-        LvObject structeLv = evalLv(initExpr->structe, ctx);
+        LvObject structeLv = check_unwrap_lv(evalLv(initExpr->structe, ctx));
         ObjectPtr structTypeVal = structeLv.get();
         const FString &structName = structeLv.name();
         if (!structTypeVal->is<StructType>())
@@ -46,7 +47,7 @@ namespace Fig
                 return std::make_shared<Object>(Object::defaultValue(type));
             }
 
-            ObjectPtr val = eval(args[0].second, ctx);
+            ObjectPtr val = check_unwrap(eval(args[0].second, ctx));
 
             auto err = [&](const char *msg) {
                 throw EvaluatorError(u8"BuiltinInitTypeMismatchError",
@@ -150,11 +151,12 @@ namespace Fig
 
         std::vector<std::pair<FString, ObjectPtr>> evaluatedArgs;
 
-        auto evalArguments = [&evaluatedArgs, initExpr, ctx, this]() {
+        auto evalArguments = [&evaluatedArgs, initExpr, ctx, this](){
             for (const auto &[argName, argExpr] : initExpr->args)
             {
-                evaluatedArgs.push_back({argName, eval(argExpr, ctx)});
+                evaluatedArgs.push_back({argName, check_unwrap(eval(argExpr, ctx))});
             }
+            return ExprResult::normal(Object::getNullInstance());
         };
 
         ContextPtr instanceCtx =
@@ -182,8 +184,8 @@ namespace Fig
                         // must be a default value
 
                         // evaluate default value in definition context
-                        ObjectPtr defaultVal = eval(field.defaultValue,
-                                                    ctx); // it can't be null here
+                        ObjectPtr defaultVal = check_unwrap(eval(field.defaultValue,
+                                                                 ctx)); // it can't be null here
 
                         // type check
                         if (!isTypeMatch(expectedType, defaultVal, ctx))
@@ -238,8 +240,8 @@ namespace Fig
                     {
                         // use default value                  //
                         // evaluate default value in definition context
-                        ObjectPtr defaultVal = eval(field.defaultValue,
-                                                    defContext); // it can't be null here
+                        ObjectPtr defaultVal = check_unwrap(eval(field.defaultValue,
+                                                                 defContext)); // it can't be null here
 
                         // type check
                         const TypeInfo &expectedType = field.type;
@@ -282,7 +284,7 @@ namespace Fig
                 {
                     // assert(argExpr->getType() == Ast::AstType::VarExpr);
                     // argName is var name
-                    const ObjectPtr &argVal = eval(argExpr, ctx); // get the value
+                    const ObjectPtr &argVal = check_unwrap(eval(argExpr, ctx)); // get the value
                     // find field
                     auto fieldIt = std::find_if(structT.fields.begin(),
                                                 structT.fields.end(),
@@ -323,8 +325,8 @@ namespace Fig
                     const Field &field = structT.fields[i];
 
                     // evaluate default value in definition context
-                    ObjectPtr defaultVal = eval(field.defaultValue,
-                                                defContext); // it can't be null here
+                    ObjectPtr defaultVal = check_unwrap(eval(field.defaultValue,
+                                                             defContext)); // it can't be null here
 
                     // type check
                     if (!isTypeMatch(field.type, defaultVal, ctx))

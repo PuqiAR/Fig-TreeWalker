@@ -1,10 +1,18 @@
+#include "Ast/Expressions/PostfixExprs.hpp"
+#include <Ast/AccessModifier.hpp>
+#include <Ast/Expressions/FunctionCall.hpp>
+#include <Evaluator/Context/context.hpp>
+#include <Evaluator/Core/ExprResult.hpp>
+#include <Evaluator/Value/value.hpp>
+#include <Module/builtins.hpp>
+#include <Evaluator/Value/LvObject.hpp>
+#include <Evaluator/Value/Type.hpp>
+#include <Evaluator/Value/structInstance.hpp>
 #include <Ast/astBase.hpp>
 #include <Core/fig_string.hpp>
 #include <Evaluator/Core/StatementResult.hpp>
 #include <Evaluator/Value/value.hpp>
-#include <Utils/utils.hpp>
-#include <Parser/parser.hpp>
-
+#include <Error/errorLog.hpp>
 #include <Evaluator/evaluator.hpp>
 #include <Evaluator/evaluator_error.hpp>
 
@@ -12,6 +20,9 @@
 #include <fstream>
 #include <memory>
 #include <unordered_map>
+
+#include <Utils/utils.hpp>
+#include <Parser/parser.hpp>
 
 #ifndef SourceInfo
     #define SourceInfo(ptr) (ptr->sourcePath), (ptr->sourceLines)
@@ -50,7 +61,7 @@ namespace Fig
 
         std::vector<FString> modSourceLines;
 
-        if (mod_ast_cache.contains(modSourcePath)) 
+        if (mod_ast_cache.contains(modSourcePath))
         {
             auto &[_sl, _asts] = mod_ast_cache[modSourcePath];
             modSourceLines = _sl;
@@ -87,15 +98,25 @@ namespace Fig
     {
         const std::vector<FString> &pathVec = i->path;
 
-        const FString &modName = pathVec.at(pathVec.size() - 1); // pathVec at least has 1 element
+        FString modName = pathVec.back(); // pathVec at least has 1 element
         if (modName == u8"_builtins")
         {
             RegisterBuiltins();
             return StatementResult::normal();
         }
+
+        // std::cerr << modName.toBasicString() << '\n'; DEBUG
+
+        if (ctx->containsInThisScope(modName))
+        {
+            throw EvaluatorError(
+                u8"RedeclarationError", std::format("{} has already been declared.", modName.toBasicString()), i);
+        }
+
         auto path = resolveModulePath(pathVec);
         ContextPtr modCtx = loadModule(path);
 
+        // 冲突问题等impl存储改成 2xMap之后解决吧（咕咕咕
         ctx->getImplRegistry().insert(modCtx->getImplRegistry().begin(), modCtx->getImplRegistry().end()); // load impl
 
         for (auto &[type, opRecord] : modCtx->getOpRegistry())
@@ -112,16 +133,21 @@ namespace Fig
             }
             ctx->getOpRegistry()[type] = opRecord;
         }
-
-        // std::cerr << modName.toBasicString() << '\n'; DEBUG
-
-        if (ctx->containsInThisScope(modName))
+        if (!i->names.empty())
         {
-            throw EvaluatorError(
-                u8"RedeclarationError", std::format("{} has already been declared.", modName.toBasicString()), i);
+            for (const FString &symName : i->names)
+            {
+                LvObject tmp(modCtx->get(symName), modCtx);
+                const ObjectPtr &value = tmp.get();
+
+                ctx->def(symName, tmp.declaredType(), AccessModifier::Const, value);
+            }
+            return StatementResult::normal();
         }
+        if (!i->rename.empty()) { modName = i->rename; }
         ctx->def(
             modName, ValueType::Module, AccessModifier::PublicConst, std::make_shared<Object>(Module(modName, modCtx)));
+
         return StatementResult::normal();
     }
 
@@ -131,28 +157,71 @@ namespace Fig
         StatementResult sr = StatementResult::normal();
         for (auto &ast : asts)
         {
-            Ast::Expression exp;
-            if ((exp = std::dynamic_pointer_cast<Ast::ExpressionAst>(ast))) // 保持 dynamic_pointer_cast !
-            {
-                sr = StatementResult::normal(eval(exp, global));
-            }
-            else
-            {
-                // statement
-                Ast::Statement stmt = std::static_pointer_cast<Ast::StatementAst>(ast);
-                assert(stmt != nullptr);
-                sr = evalStatement(stmt, global);
-                if (sr.isError())
-                {
-                    throw EvaluatorError(u8"UncaughtExceptionError",
-                                         std::format("Uncaught exception: {}", sr.result->toString().toBasicString()),
-                                         stmt);
-                }
-                if (!sr.isNormal()) { return sr; }
-            }
+            // statement, all stmt!
+            Ast::Statement stmt = std::static_pointer_cast<Ast::StatementAst>(ast);
+            assert(stmt != nullptr);
+            sr = evalStatement(stmt, global);
+            if (sr.isError()) { handle_error(sr, stmt, global); }
+            if (!sr.isNormal()) { return sr; }
         }
 
         return sr;
+    }
+
+    void Evaluator::handle_error(const StatementResult &sr, const Ast::Statement &stmt, const ContextPtr &ctx)
+    {
+        assert(sr.isError());
+        const ObjectPtr &result = sr.result;
+        const TypeInfo &resultType = actualType(result);
+
+        if (result->is<StructInstance>() && implements(resultType, Builtins::getErrorInterfaceTypeInfo(), ctx))
+        {
+            /*
+                toString() -> String
+                getErrorClass() -> String
+                getErrorMessage() -> String
+            */
+            const StructInstance &resInst = result->as<StructInstance>();
+
+            Function getErrorClassFn = ctx->getImplementedMethod(resultType, u8"getErrorClass");
+            getErrorClassFn = Function(getErrorClassFn.name,
+                                       getErrorClassFn.paras,
+                                       getErrorClassFn.retType,
+                                       getErrorClassFn.body,
+                                       resInst.localContext);
+            Function getErrorMessageFn = ctx->getImplementedMethod(resultType, u8"getErrorMessage");
+            getErrorMessageFn = Function(getErrorMessageFn.name,
+                                         getErrorMessageFn.paras,
+                                         getErrorMessageFn.retType,
+                                         getErrorMessageFn.body,
+                                         resInst.localContext);
+
+            const ExprResult &errorClassRes =
+                executeFunction(getErrorClassFn, Ast::FunctionCallArgs{}, resInst.localContext);
+            const ExprResult &errorMessageRes =
+                executeFunction(getErrorMessageFn, Ast::FunctionCallArgs{}, resInst.localContext);
+
+            if (errorClassRes.isError()) { handle_error(errorClassRes.toStatementResult(), getErrorClassFn.body, ctx); }
+            if (errorMessageRes.isError())
+            {
+                handle_error(errorMessageRes.toStatementResult(), getErrorMessageFn.body, ctx);
+            }
+
+            // std::cerr << errorClassRes.unwrap()->toString().toBasicString() << "\n";
+            // std::cerr << errorMessageRes.unwrap()->toString().toBasicString() << "\n";
+
+            const FString &errorClass = errorClassRes.unwrap()->as<ValueType::StringClass>();
+            const FString &errorMessage = errorMessageRes.unwrap()->as<ValueType::StringClass>();
+
+            ErrorLog::logFigErrorInterface(errorClass, errorMessage);
+            std::exit(1);
+        }
+        else
+        {
+            throw EvaluatorError(u8"UncaughtExceptionError",
+                                 std::format("Uncaught exception: {}", sr.result->toString().toBasicString()),
+                                 stmt);
+        }
     }
 
     void Evaluator::printStackTrace()

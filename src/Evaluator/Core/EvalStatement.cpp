@@ -1,3 +1,4 @@
+#include "Evaluator/Core/ExprResult.hpp"
 #include <Ast/AccessModifier.hpp>
 #include <Ast/Expressions/FunctionCall.hpp>
 #include <Ast/astBase.hpp>
@@ -37,7 +38,7 @@ namespace Fig
                 }
 
                 RvObject value = nullptr;
-                if (varDef->expr) { value = eval(varDef->expr, ctx); }
+                if (varDef->expr) { value = check_unwrap_stres(eval(varDef->expr, ctx)); }
 
                 TypeInfo declaredType; // default is Any
                 const Ast::Expression &declaredTypeExp = varDef->declaredType;
@@ -45,7 +46,7 @@ namespace Fig
                 if (varDef->followupType) { declaredType = actualType(value); }
                 else if (declaredTypeExp)
                 {
-                    ObjectPtr declaredTypeValue = eval(declaredTypeExp, ctx);
+                    ObjectPtr declaredTypeValue = check_unwrap_stres(eval(declaredTypeExp, ctx));
                     declaredType = actualType(declaredTypeValue);
 
                     if (value != nullptr && !isTypeMatch(declaredType, value, ctx))
@@ -83,7 +84,7 @@ namespace Fig
                 TypeInfo returnType = ValueType::Any;
                 if (fnDef->retType)
                 {
-                    ObjectPtr returnTypeValue = eval(fnDef->retType, ctx);
+                    ObjectPtr returnTypeValue = check_unwrap_stres(eval(fnDef->retType, ctx));
                     returnType = actualType(returnTypeValue);
                 }
 
@@ -117,7 +118,10 @@ namespace Fig
                 AccessModifier am = (stDef->isPublic ? AccessModifier::PublicConst : AccessModifier::Const);
 
                 ctx->def(stDef->name, ValueType::StructType, am, structTypeObj); // predef
-                defContext->def(stDef->name, ValueType::StructType, AccessModifier::Const, structTypeObj); // predef to itself, always const
+                defContext->def(stDef->name,
+                                ValueType::StructType,
+                                AccessModifier::Const,
+                                structTypeObj); // predef to itself, always const
 
                 std::vector<Field> fields;
                 std::vector<FString> _fieldNames;
@@ -134,7 +138,7 @@ namespace Fig
                     TypeInfo fieldType = ValueType::Any;
                     if (field.declaredType)
                     {
-                        ObjectPtr declaredTypeValue = eval(field.declaredType, ctx);
+                        ObjectPtr declaredTypeValue = check_unwrap_stres(eval(field.declaredType, ctx));
                         fieldType = actualType(declaredTypeValue);
                     }
 
@@ -239,11 +243,10 @@ namespace Fig
                     */
                     if (ValueType::isTypeBuiltin(structType))
                     {
-                        throw EvaluatorError(
-                            u8"BadUserError",
-                            std::format("Don't overload built-in type operators plz! `{}`", prettyType(structTypeObj).toBasicString()),
-                            ip
-                        );
+                        throw EvaluatorError(u8"BadUserError",
+                                             std::format("Don't overload built-in type operators plz! `{}`",
+                                                         prettyType(structTypeObj).toBasicString()),
+                                             ip);
                     }
 
                     using enum Ast::Operator;
@@ -328,7 +331,8 @@ namespace Fig
                             const Ast::FunctionParameters &paras = implMethod.paras;
                             for (size_t i = 0; i < paraCnt; ++i)
                             {
-                                const TypeInfo &paraType = actualType(eval(paras.posParas[i].second, ctx));
+                                const TypeInfo &paraType =
+                                    actualType(check_unwrap_stres(eval(paras.posParas[i].second, ctx)));
                                 if (paraType != ValueType::Any && paraType != structType)
                                 {
                                     throw EvaluatorError(
@@ -345,7 +349,7 @@ namespace Fig
 
                         if (paraCnt == 1)
                         {
-                            ctx->registerUnaryOperator(structType, op, [=, this](const ObjectPtr &value) -> ObjectPtr {
+                            ctx->registerUnaryOperator(structType, op, [=, this](const ObjectPtr &value) -> ExprResult {
                                 fillOpFnParas({value});
                                 return executeFunction(Function(opFnName,
                                                                 implMethod.paras, // parameters
@@ -447,7 +451,7 @@ namespace Fig
 
                     implemented.insert(name);
 
-                    ObjectPtr returnTypeValue = eval(ifMethod.returnType, ctx);
+                    ObjectPtr returnTypeValue = check_unwrap_stres(eval(ifMethod.returnType, ctx));
 
                     record.implMethods[name] =
                         Function(implMethod.name, implMethod.paras, actualType(returnTypeValue), implMethod.body, ctx);
@@ -474,7 +478,7 @@ namespace Fig
 
             case IfSt: {
                 auto ifSt = std::static_pointer_cast<Ast::IfSt>(stmt);
-                ObjectPtr condVal = eval(ifSt->condition, ctx);
+                ObjectPtr condVal = check_unwrap_stres(eval(ifSt->condition, ctx));
                 if (condVal->getTypeInfo() != ValueType::Bool)
                 {
                     throw EvaluatorError(
@@ -486,7 +490,7 @@ namespace Fig
                 // else
                 for (const auto &elif : ifSt->elifs)
                 {
-                    ObjectPtr elifCondVal = eval(elif->condition, ctx);
+                    ObjectPtr elifCondVal = check_unwrap_stres(eval(elif->condition, ctx));
                     if (elifCondVal->getTypeInfo() != ValueType::Bool)
                     {
                         throw EvaluatorError(
@@ -503,7 +507,7 @@ namespace Fig
                 auto whileSt = std::static_pointer_cast<Ast::WhileSt>(stmt);
                 while (true)
                 {
-                    ObjectPtr condVal = eval(whileSt->condition, ctx);
+                    ObjectPtr condVal = check_unwrap_stres(eval(whileSt->condition, ctx));
                     if (condVal->getTypeInfo() != ValueType::Bool)
                     {
                         throw EvaluatorError(
@@ -535,7 +539,7 @@ namespace Fig
                 while (true) // use while loop to simulate for loop, cause we
                              // need to check condition type every iteration
                 {
-                    ObjectPtr condVal = eval(forSt->condition, loopContext);
+                    ObjectPtr condVal = check_unwrap_stres(eval(forSt->condition, loopContext));
                     if (condVal->getTypeInfo() != ValueType::Bool)
                     {
                         throw EvaluatorError(
@@ -569,10 +573,15 @@ namespace Fig
                 ContextPtr tryCtx = std::make_shared<Context>(
                     FString(std::format("<Try at {}:{}>", tryst->getAAI().line, tryst->getAAI().column)), ctx);
                 StatementResult sr = StatementResult::normal();
+                bool crashed = false;
                 for (auto &stmt : tryst->body->stmts)
                 {
                     sr = evalStatement(stmt, tryCtx); // eval in try context
-                    if (sr.isError()) { break; }
+                    if (sr.isError())
+                    {
+                        crashed = true;
+                        break;
+                    }
                 }
                 bool catched = false;
                 for (auto &cat : tryst->catches)
@@ -591,7 +600,7 @@ namespace Fig
                         break;
                     }
                 }
-                if (!catched)
+                if (!catched && crashed)
                 {
                     throw EvaluatorError(u8"UncaughtExceptionError",
                                          std::format("Uncaught exception: {}", sr.result->toString().toBasicString()),
@@ -604,7 +613,7 @@ namespace Fig
             case ThrowSt: {
                 auto ts = std::static_pointer_cast<Ast::ThrowSt>(stmt);
 
-                ObjectPtr value = eval(ts->value, ctx);
+                ObjectPtr value = check_unwrap_stres(eval(ts->value, ctx));
                 if (value->is<ValueType::NullClass>())
                 {
                     throw EvaluatorError(u8"TypeError", u8"Why did you throw a null?", ts);
@@ -616,7 +625,7 @@ namespace Fig
                 auto returnSt = std::static_pointer_cast<Ast::ReturnSt>(stmt);
 
                 ObjectPtr returnValue = Object::getNullInstance(); // default is null
-                if (returnSt->retValue) returnValue = eval(returnSt->retValue, ctx);
+                if (returnSt->retValue) returnValue = check_unwrap_stres(eval(returnSt->retValue, ctx));
                 return StatementResult::returnFlow(returnValue);
             }
 
@@ -646,7 +655,7 @@ namespace Fig
 
             case ExpressionStmt: {
                 auto exprStmt = std::static_pointer_cast<Ast::ExpressionStmtAst>(stmt);
-                return StatementResult::normal(eval(exprStmt->exp, ctx));
+                return check_unwrap_stres(eval(exprStmt->exp, ctx));
             }
 
             case BlockStatement: {

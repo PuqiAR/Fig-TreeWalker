@@ -31,6 +31,27 @@ public interface Error
     getErrorMessage() -> String;
 }
 
+public struct TypeError
+{
+    public msg: String;
+}
+
+impl Error for TypeError
+{
+    toString()
+    {
+        return "TypeError: " + getErrorMessage();
+    }
+    getErrorClass()
+    {
+        return "TypeError";
+    }
+    getErrorMessage()
+    {
+        return msg;
+    }
+}
+
 // Operation interface
 
 public interface Operation

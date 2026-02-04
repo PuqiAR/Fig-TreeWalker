@@ -10,7 +10,7 @@
 #include <Evaluator/Value/value_forward.hpp>
 
 #include <cassert>
-#include <iostream>
+// #include <iostream>
 #include <memory>
 #include <unordered_set>
 #include <variant>
@@ -35,6 +35,11 @@ namespace Fig
         static constexpr auto intMinAsDouble =
             static_cast<ValueType::DoubleClass>(std::numeric_limits<ValueType::IntClass>::min());
         return d > intMaxAsDouble || d < intMinAsDouble;
+    }
+
+    inline bool nearlyEqual(ValueType::DoubleClass l, ValueType::DoubleClass r, ValueType::DoubleClass epsilon = 1e-9)
+    {
+        return std::abs(l - r) < epsilon;
     }
 
     TypeInfo actualType(std::shared_ptr<const Object> obj);
@@ -646,7 +651,13 @@ namespace Fig
         }
 
         // comparison
-        friend bool operator==(const Object &lhs, const Object &rhs) { return lhs.data == rhs.data; }
+        friend bool operator==(const Object &lhs, const Object &rhs) {
+            if (lhs.isNumeric() && rhs.isNumeric())
+            {
+                return nearlyEqual(lhs.getNumericValue(), rhs.getNumericValue());
+            }
+            return lhs.data == rhs.data; 
+        }
         friend bool operator!=(const Object &lhs, const Object &rhs) { return !(lhs == rhs); }
         friend bool operator<(const Object &lhs, const Object &rhs)
         {

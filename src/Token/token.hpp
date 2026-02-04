@@ -44,6 +44,7 @@ namespace Fig
         Catch,     // catch
         Throw,     // throw
         Finally,   // finally
+        As,        // as
 
         // TypeNull,   // Null
         // TypeInt,    // Int

@@ -49,6 +49,9 @@ namespace Fig
         {Ast::Operator::GreaterEqual, {100, 101}},
         {Ast::Operator::Is, {100, 101}},
 
+        // 转换
+        {Ast::Operator::As, {105, 106}},
+
         // 位移
         {Ast::Operator::ShiftLeft, {110, 111}},
         {Ast::Operator::ShiftRight, {110, 111}},
@@ -998,6 +1001,8 @@ namespace Fig
     {
         next(); // consume `import`
         std::vector<FString> path;
+        std::vector<FString> names;
+        FString rename;
         while (true)
         {
             expect(TokenType::Identifier, u8"package name");
@@ -1008,13 +1013,41 @@ namespace Fig
             {
                 next(); // consume `.`
             }
+            else if (isThis(TokenType::As)) { break; }
+            else if (isThis(TokenType::LeftBrace)) { break; }
             else
             {
-                throw SyntaxError();
+                throwAddressableError<SyntaxError>(u8"invalid syntax");
+            }
+        }
+        if (isThis(TokenType::As))
+        {
+            next(); // consume `as`
+            expect(TokenType::Identifier, u8"new name");
+            rename = currentToken().getValue();
+            next(); // consume name
+        }
+        else if (isThis(TokenType::LeftBrace))
+        {
+            next(); // consume `{`
+            while (true)
+            {
+                if (isThis(TokenType::RightBrace))
+                {
+                    next(); // consume `}`
+                    break;
+                }
+                if (isThis(TokenType::Comma))
+                {
+                    next(); // consume `,`
+                }
+                expect(TokenType::Identifier, u8"symbol name");
+                names.push_back(currentToken().getValue());
+                next();
             }
         }
         expectSemicolon();
-        return makeAst<Ast::ImportSt>(path);
+        return makeAst<Ast::ImportSt>(path, names, rename);
     }
 
     Ast::Expression Parser::parseExpression(Precedence bp, TokenType stop, TokenType stop2, TokenType stop3)
