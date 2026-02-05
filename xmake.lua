@@ -63,3 +63,11 @@ target("ir_test_main")
     add_files("src/IR/ir_test_main.cpp")
     
     set_warnings("all")
+
+target("StringTest")
+    set_kind("binary")
+    
+    add_files("src/Core/StringTest.cpp")
+
+    set_warnings("all")
+    
