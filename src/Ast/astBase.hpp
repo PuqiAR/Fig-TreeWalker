@@ -124,7 +124,8 @@ namespace Fig::Ast
 
         virtual FString typeName()
         {
-            return FString::fromStringView(FStringView::fromBasicStringView(magic_enum::enum_name(type)));
+            const auto &name = magic_enum::enum_name(type);
+            return FString::fromBasicString(std::string(name.data(), name.length()));
         }
         virtual FString toString()
         {
