@@ -66,6 +66,30 @@ Fig 围绕几个核心原则设计：
 
 ## 性能概览
 
+**版本:** 0.4.3-alpha (树遍历解释器)
+**测试硬件:** i5-13490F, Windows 11
+
+**计算 Fibonacci(30) 的执行时间:**
+
+* 朴素递归: **5.47秒** (~比0.4.2-alpha快2.14倍)
+* 记忆化: **0.55毫秒** (~比0.4.2-alpha快1.69倍)
+* 迭代: **0.10毫秒** (~比0.4.2-alpha快3.73倍)
+* 尾递归: **0.16毫秒** (~比0.4.2-alpha快2.55倍)
+
+**可视化对比:**
+
+```
+朴素递归      : █████████████████████████ 5.47秒
+记忆化递归    : ▉ 0.55毫秒
+迭代算法      : ▍ 0.10毫秒
+尾递归        : ▎ 0.16毫秒
+```
+
+**核心发现:** 算法选择仍然主导性能，同时 0.4.3-alpha 在函数调用和循环效率上有明显提升。
+
+**详细报告:** [English](./docs/benchmark_result/0.4.3-alpha/benchmark_result_en_0.4.3-alpha.pdf) | [中文](./docs/benchmark_result/0.4.3-alpha/benchmark_result_zh_0.4.3-alpha.pdf)
+
+
 **版本:** 0.4.2-alpha (树遍历解释器)  
 **测试硬件:** i5-13490F, Windows 11
 
@@ -85,7 +109,7 @@ Fig 围绕几个核心原则设计：
 
 **核心发现:** 在此树遍历实现中，算法选择主导性能表现。
 
-**详细报告:** [English](./docs/benchmark_result/benchmark_result_en_0.4.2-alpha.md) | [中文](./docs/benchmark_result/benchmark_result_zh_0.4.2-alpha.md)
+**详细报告:** [English](./docs/benchmark_result/0.4.2-alpha/benchmark_result_en_0.4.2-alpha.pdf) | [中文](./docs/benchmark_result/0.4.2-alpha/benchmark_result_zh_0.4.2-alpha.pdf)
 
 
 ## 语言文档

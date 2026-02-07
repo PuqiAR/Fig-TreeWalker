@@ -77,6 +77,33 @@ Replace `[file]` with the path to your input file.
 
 ## Performance Summary
 
+**Version:** 0.4.3-alpha (Tree-walker Interpreter)
+**Test Hardware:** i5-13490F, Windows 11
+
+**Execution Times for Fibonacci(30):**
+
+* Naive Recursion: **5.47s** (~2.14× faster than 0.4.2-alpha)
+* Memoization: **0.55ms** (~1.69× faster than 0.4.2-alpha)
+* Iteration: **0.10ms** (~3.73× faster than 0.4.2-alpha)
+* Tail Recursion: **0.16ms** (~2.55× faster than 0.4.2-alpha)
+
+**Visual Comparison:**
+
+```
+Naive Recursion  : █████████████████████████ 5.47s
+Memoization      : ▉ 0.55ms
+Iteration        : ▍ 0.10ms
+Tail Recursion   : ▎ 0.16ms
+```
+
+**Key Insight:** Algorithm choice still dominates performance, while 0.4.3-alpha shows significant improvements in function call and loop efficiency.
+
+**Detailed Reports:** [English](./docs/benchmark_result/0.4.3-alpha/benchmark_result_en_0.4.3-alpha.pdf) | [中文](./docs/benchmark_result/0.4.3-alpha/benchmark_result_zh_0.4.3-alpha.pdf)
+
+
+
+
+
 **Version:** 0.4.2-alpha (Tree-walker Interpreter)  
 **Test Hardware:** i5-13490F, Windows 11
 
@@ -96,7 +123,7 @@ Tail Recursion   : ▎ 0.40ms
 
 **Key Insight:** Algorithm choice dominates performance in this tree-walker implementation.
 
-**Detailed Reports:** [English](./docs/benchmark_result/benchmark_result_en_0.4.2-alpha.md) | [中文](./docs/benchmark_result/benchmark_result_zh_0.4.2-alpha.md)
+**Detailed Reports:** [English](./docs/benchmark_result/0.4.2-alpha/benchmark_result_en_0.4.2-alpha.pdf) | [中文](./docs/benchmark_result/0.4.2-alpha/benchmark_result_zh_0.4.2-alpha.pdf)
 
 
 ## Language Documents
