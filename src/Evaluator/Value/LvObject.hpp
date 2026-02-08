@@ -80,6 +80,10 @@ namespace Fig
             if (kind == Kind::Variable)
             {
                 auto s = resolve(slot);
+                if (isAccessConst(s->am))
+                {
+                    throw RuntimeError(FString(std::format("Variable `{}` is immutable", s->name.toBasicString())));
+                }
                 if (!isTypeMatch(s->declaredType, v, ctx))
                 {
                     throw RuntimeError(
@@ -88,11 +92,6 @@ namespace Fig
                                         s->name.toBasicString(),
                                         s->declaredType.toString().toBasicString(),
                                         prettyType(v).toBasicString())));
-                }
-                if (isAccessConst(s->am))
-                {
-                    throw RuntimeError(FString(
-                        std::format("Variable `{}` is immutable", s->name.toBasicString())));
                 }
                 s->value = v;
             }
