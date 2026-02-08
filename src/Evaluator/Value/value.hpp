@@ -437,8 +437,10 @@ namespace Fig
             if (is<ValueType::StringClass>()) return FString(u8"\"" + as<ValueType::StringClass>() + u8"\"");
             if (is<ValueType::BoolClass>()) return as<ValueType::BoolClass>() ? FString(u8"true") : FString(u8"false");
             if (is<Function>())
-                return FString(std::format(
-                    "<Function '{}' at {:p}>", as<Function>().id, static_cast<const void *>(&as<Function>())));
+                return FString(std::format("<Function '{}'({}) at {:p}>",
+                                           as<Function>().name.toBasicString(),
+                                           as<Function>().id,
+                                           static_cast<const void *>(&as<Function>())));
             if (is<StructType>())
                 return FString(std::format("<StructType '{}' at {:p}>",
                                            as<StructType>().type.toString().toBasicString(),
@@ -651,12 +653,13 @@ namespace Fig
         }
 
         // comparison
-        friend bool operator==(const Object &lhs, const Object &rhs) {
+        friend bool operator==(const Object &lhs, const Object &rhs)
+        {
             if (lhs.isNumeric() && rhs.isNumeric())
             {
                 return nearlyEqual(lhs.getNumericValue(), rhs.getNumericValue());
             }
-            return lhs.data == rhs.data; 
+            return lhs.data == rhs.data;
         }
         friend bool operator!=(const Object &lhs, const Object &rhs) { return !(lhs == rhs); }
         friend bool operator<(const Object &lhs, const Object &rhs)
