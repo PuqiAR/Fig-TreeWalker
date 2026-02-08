@@ -183,9 +183,9 @@ namespace Fig
                         // we've checked argument count before, so here
                         // must be a default value
 
-                        // evaluate default value in definition context
+                        // evaluate default value in definition context!
                         ObjectPtr defaultVal = check_unwrap(eval(field.defaultValue,
-                                                                 ctx)); // it can't be null here
+                                                                 defContext)); // it can't be null here
 
                         // type check
                         if (!isTypeMatch(expectedType, defaultVal, ctx))
@@ -345,13 +345,12 @@ namespace Fig
                 }
             }
         }
-        ContextPtr stDefCtx = structT.defContext;
 
         // load struct method
-        for (auto &[id, fn] : stDefCtx->getFunctions())
+        for (auto &[id, fn] : defContext->getFunctions())
         {
             const FString &funcName = fn.name;
-            const auto &funcSlot = stDefCtx->get(funcName);
+            const auto &funcSlot = defContext->get(funcName);
             
             instanceCtx->def(funcName,
                              ValueType::Function,

@@ -386,6 +386,29 @@ namespace Fig
         // entry: current is interface name
         FString interfaceName = currentToken().getValue();
         next();                       // consume name
+
+        std::vector<Ast::Expression> bundles;
+
+        if (isThis(TokenType::Colon))
+        {
+            next(); // consume `:`
+            // parse bundle interfaces
+        
+            if (isThis(TokenType::LeftBrace))
+            {
+                throwAddressableError<SyntaxError>(u8"expect interfaces to bundle");
+            }
+            while (true)
+            {
+                if (isThis(TokenType::LeftBrace)) { break; }
+                bundles.push_back(parseExpression(0, TokenType::Plus, TokenType::LeftBrace));
+                if (isThis(TokenType::Plus))
+                {
+                    next(); // consume `+`
+                }
+            }
+        }
+
         expect(TokenType::LeftBrace); // `{
         next();                       // consume `{`
 
@@ -427,7 +450,7 @@ namespace Fig
                 throwAddressableError<SyntaxError>(FString(u8"Invalid syntax"), currentAAI.line, currentAAI.column);
             }
         }
-        return makeAst<Ast::InterfaceDefAst>(interfaceName, methods, isPublic);
+        return makeAst<Ast::InterfaceDefAst>(interfaceName, bundles, methods, isPublic);
     }
 
     Ast::Implement Parser::__parseImplement()

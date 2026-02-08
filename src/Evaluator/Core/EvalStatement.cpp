@@ -1,3 +1,4 @@
+#include "Ast/Statements/InterfaceDefSt.hpp"
 #include <Evaluator/Core/ExprResult.hpp>
 #include <Ast/AccessModifier.hpp>
 #include <Ast/Expressions/FunctionCall.hpp>
@@ -14,6 +15,7 @@
 
 #include <Utils/utils.hpp>
 #include <unordered_map>
+#include <unordered_set>
 
 namespace Fig
 {
@@ -165,6 +167,7 @@ namespace Fig
                 auto ifd = std::static_pointer_cast<Ast::InterfaceDefAst>(stmt);
 
                 const FString &interfaceName = ifd->name;
+                const std::vector<Ast::Expression> &bundle_exprs = ifd->bundles;
 
                 if (ctx->containsInThisScope(interfaceName))
                 {
@@ -173,11 +176,54 @@ namespace Fig
                         std::format("Interface `{}` already declared in this scope", interfaceName.toBasicString()),
                         ifd);
                 }
+
+                std::vector<Ast::InterfaceMethod> bundle_methods;
+                std::unordered_map<FString, FString> cache_methods;
+                //   K: interface method name    V: method owner (interface)
+                for (const auto &exp : bundle_exprs)
+                {
+                    ObjectPtr itf_val = check_unwrap_stres(eval(exp, ctx));
+                    if (!itf_val->is<InterfaceType>())
+                    {
+                        throw EvaluatorError(
+                            u8"TypeError",
+                            std::format(
+                                "Cannot bundle type '{}' that is not interface",
+                                prettyType(itf_val).toBasicString()
+                            ),
+                            exp
+                        );
+                    }
+                    const InterfaceType &itfType = itf_val->as<InterfaceType>();
+                    for (const auto &method : itfType.methods)
+                    {
+                        if (cache_methods.contains(method.name))
+                        {
+                            throw EvaluatorError(
+                                u8"DuplicateInterfaceMethodError",
+                                std::format(
+                                    "Interface `{}` has duplicate method '{}' with '{}.{}'",
+                                    itfType.type.toString().toBasicString(),
+                                    method.name.toBasicString(),
+                                    cache_methods[method.name].toBasicString(),
+                                    method.name.toBasicString()
+                                ),
+                                ifd
+                            );
+                        }
+                        cache_methods[method.name] = itfType.type.toString();
+                        bundle_methods.push_back(method);
+                    }
+                }
+
+                std::vector<Ast::InterfaceMethod> methods(ifd->methods);
+                methods.insert(methods.end(), bundle_methods.begin(), bundle_methods.end());
+
                 TypeInfo type(interfaceName, true); // register interface
                 ctx->def(interfaceName,
                          type,
                          (ifd->isPublic ? AccessModifier::PublicConst : AccessModifier::Const),
-                         std::make_shared<Object>(InterfaceType(type, ifd->methods)));
+                         std::make_shared<Object>(InterfaceType(type, methods)));
                 return StatementResult::normal();
             }
 
