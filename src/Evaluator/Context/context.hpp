@@ -80,6 +80,13 @@ namespace Fig
             // c.structTypeNames.end());
         }
 
+        void clear()
+        {
+            variables.clear();
+            implRegistry.clear();
+            opRegistry.clear();
+        }
+
         std::unordered_map<size_t, Function> getFunctions() const
         {
             std::unordered_map<size_t, Function> result;

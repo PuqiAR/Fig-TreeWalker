@@ -327,7 +327,7 @@ namespace Fig
                             FString(std::format("<Function {}>", opFnName.toBasicString())), ctx);
 
                         const auto &fillOpFnParas = [this, structType, implMethod, opFnName, fnCtx, ctx, paraCnt](
-                                                        const std::vector<ObjectPtr> &args) {
+                                                        const std::vector<ObjectPtr> &args) -> StatementResult {
                             const Ast::FunctionParameters &paras = implMethod.paras;
                             for (size_t i = 0; i < paraCnt; ++i)
                             {
@@ -345,6 +345,7 @@ namespace Fig
                                 }
                                 fnCtx->def(paras.posParas[i].first, paraType, AccessModifier::Normal, args[i]);
                             }
+                            return StatementResult::normal();
                         };
 
                         if (paraCnt == 1)
@@ -536,6 +537,11 @@ namespace Fig
                               loopContext); // ignore init statement result
                 size_t iteration = 0;
 
+                ContextPtr iterationContext = std::make_shared<Context>(
+                    FString(std::format(
+                        "<For {}:{}, Iteration {}>", forSt->getAAI().line, forSt->getAAI().column, iteration)),
+                    loopContext); // every loop has its own context
+
                 while (true) // use while loop to simulate for loop, cause we
                              // need to check condition type every iteration
                 {
@@ -549,11 +555,12 @@ namespace Fig
                     }
                     if (!condVal->as<ValueType::BoolClass>()) { break; }
                     iteration++;
-                    ContextPtr iterationContext = std::make_shared<Context>(
-                        FString(std::format(
-                            "<For {}:{}, Iteration {}>", forSt->getAAI().line, forSt->getAAI().column, iteration)),
-                        loopContext); // every loop has its own context
+
                     StatementResult sr = evalBlockStatement(forSt->body, iterationContext);
+                    iterationContext->clear();
+                    iterationContext->setScopeName(FString(std::format(
+                        "<For {}:{}, Iteration {}>", forSt->getAAI().line, forSt->getAAI().column, iteration)));
+
                     if (sr.shouldReturn()) { return sr; }
                     if (sr.shouldBreak()) { break; }
                     if (sr.shouldContinue())

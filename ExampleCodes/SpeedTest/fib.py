@@ -6,6 +6,6 @@ def fib(x:int) -> int:
 
 if __name__ == '__main__':
     t0 = tt()
-    result = fib(25)
+    result = fib(30)
     t1 = tt()
     print('cost: ',t1-t0, 'result:', result)
