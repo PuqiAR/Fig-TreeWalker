@@ -162,7 +162,7 @@ namespace Fig
         while (hasNext())
         {
             UTF8Char c = *it;
-            if (c == U'"' || c == U'\n')
+            if (c == U'"')
             {
                 next();
                 unterminated = false;

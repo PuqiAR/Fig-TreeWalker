@@ -1,4 +1,4 @@
-#include "Ast/Statements/InterfaceDefSt.hpp"
+#include <Ast/Statements/InterfaceDefSt.hpp>
 #include <Evaluator/Core/ExprResult.hpp>
 #include <Ast/AccessModifier.hpp>
 #include <Ast/Expressions/FunctionCall.hpp>
@@ -65,6 +65,10 @@ namespace Fig
                         value = std::make_shared<Object>(Object::defaultValue(declaredType));
                     } // else -> Ok
                 } // else -> type is Any (default)
+                else 
+                {
+                    value = Object::getNullInstance();
+                }
                 AccessModifier am =
                     (varDef->isConst ? (varDef->isPublic ? AccessModifier::PublicConst : AccessModifier::Const) :
                                        (varDef->isPublic ? AccessModifier::Public : AccessModifier::Normal));
@@ -185,31 +189,23 @@ namespace Fig
                     ObjectPtr itf_val = check_unwrap_stres(eval(exp, ctx));
                     if (!itf_val->is<InterfaceType>())
                     {
-                        throw EvaluatorError(
-                            u8"TypeError",
-                            std::format(
-                                "Cannot bundle type '{}' that is not interface",
-                                prettyType(itf_val).toBasicString()
-                            ),
-                            exp
-                        );
+                        throw EvaluatorError(u8"TypeError",
+                                             std::format("Cannot bundle type '{}' that is not interface",
+                                                         prettyType(itf_val).toBasicString()),
+                                             exp);
                     }
                     const InterfaceType &itfType = itf_val->as<InterfaceType>();
                     for (const auto &method : itfType.methods)
                     {
                         if (cache_methods.contains(method.name))
                         {
-                            throw EvaluatorError(
-                                u8"DuplicateInterfaceMethodError",
-                                std::format(
-                                    "Interface `{}` has duplicate method '{}' with '{}.{}'",
-                                    itfType.type.toString().toBasicString(),
-                                    method.name.toBasicString(),
-                                    cache_methods[method.name].toBasicString(),
-                                    method.name.toBasicString()
-                                ),
-                                ifd
-                            );
+                            throw EvaluatorError(u8"DuplicateInterfaceMethodError",
+                                                 std::format("Interface `{}` has duplicate method '{}' with '{}.{}'",
+                                                             itfType.type.toString().toBasicString(),
+                                                             method.name.toBasicString(),
+                                                             cache_methods[method.name].toBasicString(),
+                                                             method.name.toBasicString()),
+                                                 ifd);
                         }
                         cache_methods[method.name] = itfType.type.toString();
                         bundle_methods.push_back(method);
