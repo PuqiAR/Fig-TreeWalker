@@ -120,7 +120,7 @@ public func formatByListArgs(objects) -> Any
     {
         return null;
     }
-if objects.length() < 1
+    if objects.length() < 1
     {
         throw new FormatError{"Require format string"};
     }
