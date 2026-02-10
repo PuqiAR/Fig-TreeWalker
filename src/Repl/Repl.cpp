@@ -1,3 +1,4 @@
+#include <Evaluator/Value/Type.hpp>
 #include <Ast/astBase.hpp>
 #include <Error/error.hpp>
 #include <Error/errorLog.hpp>
@@ -23,14 +24,8 @@ namespace Fig
 
         while (true)
         {
-            ostream << "\r\n>>";
+            ostream << "\r>>";
             const FString &line = readline();
-
-            if (line.empty())
-            {
-                ostream << Object::getNullInstance()->toString().toBasicString();
-                continue;
-            }
             if (line == u8"!exit") { break; }
 
             Lexer lexer(line, sourcePath, sourceLines);
@@ -43,6 +38,10 @@ namespace Fig
 
                 StatementResult sr = evaluator.Run(program);
                 ObjectPtr result = sr.result;
+                if (result->is<ValueType::NullClass>())
+                {
+                    continue;
+                }
                 ostream << result->toString().toBasicString() << '\n';
             }
             catch (AddressableError &e)
