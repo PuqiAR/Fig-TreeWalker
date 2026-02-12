@@ -1,0 +1,101 @@
+/*
+    Official Module `std.file`
+    Library/std/file/file.fig
+
+    Copyright © 2026 PuqiAR. All rights reserved.
+*/
+
+import _builtins;
+import std.io;
+
+
+public struct __OpenMode
+{
+    public App: Int = 1;
+    public Ate: Int = 2;
+    public Bin: Int = 4;
+    public In: Int = 8;
+    public Out: Int = 16;
+    public Trunc: Int = 32;
+
+    public __openmode_to_string: Map = 
+    {
+        1 : "App",
+        2 : "Ate",
+        4 : "Bin",
+        8 : "In",
+        16 : "Out",
+        32 : "Trunc"
+    };
+}
+public const OpenMode := new __OpenMode{};
+
+public func repr_mode(mode: Int) -> String
+{
+    return OpenMode.__openmode_to_string[mode];
+}
+
+
+
+public struct FileError
+{
+    msg: String;
+}
+
+impl Error for FileError
+{
+    getErrorClass()
+    {
+        return "FileError";
+    }
+    getErrorMessage()
+    {
+        return msg;
+    }
+    toString()
+    {
+        return getErrorClass() + ": " + msg;
+    }
+}
+
+public struct File
+{
+    path: String;
+    mode: Int;
+
+    id: Int;
+
+    public func read() -> Any
+    {
+        return __fstdfile_read(id);
+    }
+
+    public func write(object: String) -> Null
+    {
+        __fstdfile_write(id, object);
+    }
+
+    public func close() -> Null
+    {
+        __fstdfile_close(id);
+    }
+
+    public func getID() -> Int
+    {
+        return id;
+    }
+}
+
+public func open(path: String, mode: Int) 
+{
+    const id := __fstdfile_open(path, mode);
+    if not __fstdfile_is_open(id)
+    {
+        throw new FileError{"File " + path + " open failed"};
+    }
+    return new File{
+        path: path,
+        mode: mode,
+        id: id
+    };
+}

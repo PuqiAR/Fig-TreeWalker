@@ -10,6 +10,7 @@
 #include <unordered_map>
 #include <functional>
 #include <vector>
+#include <fstream>
 
 namespace Fig
 {
@@ -44,7 +45,20 @@ namespace Fig
         using BuiltinFunction = std::function<ObjectPtr(const std::vector<ObjectPtr> &)>;
 
         const std::unordered_map<FString, int> &getBuiltinFunctionArgCounts();
-        const std::unordered_map<FString, BuiltinFunction> &getBuiltinFunctions();
+
+        /*
+            File
+        */
+
+        struct FileHandler
+        {
+            int64_t id;
+            std::fstream *fs;
+        };
+
+        std::vector<FileHandler *> &getFileHandlers(); // global
+
+        const std::unordered_map<FString, BuiltinFunction> &getBuiltinFunctions();        
 
         inline bool isBuiltinFunction(const FString &name)
         {

@@ -5,13 +5,19 @@
 #include <Ast/Statements/ControlSt.hpp>
 #include <Ast/astBase.hpp>
 #include <Ast/functionParameters.hpp>
-#include <Evaluator/Context/context.hpp>
-#include <Core/fig_string.hpp>
 #include <Ast/AccessModifier.hpp>
+
 #include <Evaluator/Value/structType.hpp>
 #include <Evaluator/Value/value.hpp>
-#include <Module/builtins.hpp>
+#include <Evaluator/Value/Type.hpp>
+#include <Evaluator/Context/context.hpp>
 
+#include <Module/CppLibrary/CppLibrary.hpp>
+
+#include <Module/builtins.hpp>
+#include <Core/fig_string.hpp>
+
+#include <cassert>
 #include <memory>
 #include <print>
 #include <iostream>
@@ -132,9 +138,18 @@ namespace Fig::Builtins
             {u8"__fmath_tan", 1},
             {u8"__fmath_tanh", 1},
             {u8"__fmath_trunc", 1},
+
+            /* file start */
+            {u8"__fstdfile_open", 2},
+            {u8"__fstdfile_close", 1},
+            {u8"__fstdfile_is_open", 1},
+
+            {u8"__fstdfile_read", 1},
+            {u8"__fstdfile_write", 2},
         };
         return builtinFunctionArgCounts;
     }
+
     const std::unordered_map<FString, BuiltinFunction> &getBuiltinFunctions()
     {
         static const std::unordered_map<FString, BuiltinFunction> builtinFunctions{
@@ -420,6 +435,47 @@ namespace Fig::Builtins
                  ObjectPtr val = args[0];
                  ValueType::DoubleClass d = val->getNumericValue();
                  return std::make_shared<Object>(trunc(d));
+             }},
+            /* file start */
+            {u8"__fstdfile_open",
+             [](const std::vector<ObjectPtr> &args) -> ObjectPtr {
+                 const FString &path = args[0]->as<ValueType::StringClass>();
+                 const ValueType::IntClass &mode = args[1]->as<ValueType::IntClass>();
+
+                 CppLibrary::File *f = CppLibrary::FileManager::getInstance().GetNextFreeFile();
+                 f->fs->open(path.toBasicString(), static_cast<unsigned int>(mode));
+                 return std::make_shared<Object>(static_cast<ValueType::IntClass>(f->id));
+             }},
+            {u8"__fstdfile_close",
+             [](const std::vector<ObjectPtr> &args) -> ObjectPtr {
+                 const ValueType::IntClass &id = args[0]->as<ValueType::IntClass>();
+                 CppLibrary::FileManager::getInstance().CloseFile(id);
+                 return Object::getNullInstance();
+             }},
+            {u8"__fstdfile_is_open",
+             [](const std::vector<ObjectPtr> &args) -> ObjectPtr {
+                 const ValueType::IntClass &id = args[0]->as<ValueType::IntClass>();
+                 return std::make_shared<Object>(CppLibrary::FileManager::getInstance().GetFile(id)->fs->is_open());
+             }},
+            {u8"__fstdfile_read",
+             [](const std::vector<ObjectPtr> &args) -> ObjectPtr {
+                 const ValueType::IntClass &id = args[0]->as<ValueType::IntClass>();
+                 CppLibrary::File *f = CppLibrary::FileManager::getInstance().GetFile(id);
+
+                 char *buf = new char[CppLibrary::FileManager::MAX_FILE_BUF];
+                 f->fs->read(buf, CppLibrary::FileManager::MAX_FILE_BUF);
+                 return std::make_shared<Object>(ValueType::StringClass(reinterpret_cast<const char8_t *>(buf)));
+             }},
+            {u8"__fstdfile_write",
+             [](const std::vector<ObjectPtr> &args) -> ObjectPtr {
+                 const ValueType::IntClass &id = args[0]->as<ValueType::IntClass>();
+                 const ValueType::StringClass &str = args[1]->as<ValueType::StringClass>();
+
+                 CppLibrary::File *f = CppLibrary::FileManager::getInstance().GetFile(id);
+                 const char *data = reinterpret_cast<const char *>(str.c_str());
+                 f->fs->write(data, str.size());
+                 return std::make_shared<Object>(static_cast<ValueType::IntClass>(str.length()));
+                 // bytes wrote
              }},
         };
         return builtinFunctions;
