@@ -42,7 +42,7 @@ def resolveInstallPath(os: int):
     return default_path[os]
 
 def getReleases():
-    api_postfix = '/api/v1/repos/PuqiAR/Fig/releases'
+    api_postfix = '/api/v1/repos/PuqiAR/Fig-TreeWalker/releases'
     api_url = GITEA_URL + api_postfix
     
     rel = requests.get(api_url).text
