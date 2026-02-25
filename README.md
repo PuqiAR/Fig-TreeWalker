@@ -35,13 +35,13 @@ Recommend view on Gitea Endpoint
 1. Clone the repository:
 
 ```bash
-git clone https://git.fig-lang.cn/PuqiAR/Fig.git
+git clone https://git.fig-lang.cn/PuqiAR/Fig-TreeWalker.git
 # Recommend
 ```
 or
 
 ```bash
-git clone https://github.com/PuqiAR/Fig.git
+git clone https://github.com/PuqiAR/Fig-TreeWalker.git
 ```
 
 2. Navigate to the project directory:
